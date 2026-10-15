@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Health Score FPSO Forte</title>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#000;--band:#1b1b1b;--card:#242424;--card2:#2c2c2c;--line:#363636;--line2:#2f2f2f;
+  --text:#f1f1f1;--muted:#a0a0a0;--dim:#6e6e6e;--accent:#7f96ff;
+  --ok:#1fb33a;--ok-bar:#1e7a25;--bad-bar:#a02a2a;
+  --s-good:#22c55e;--s-ok:#e5c100;--s-warn:#f59024;--s-bad:#ef4444;
+  --c-eng:#a78bfa;--c-oil:#f5b13d;--c-vib:#38bdf8;--c-sap:#f472b6;--c-case:#fb7a5a;
+  --radius:6px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Roboto,"Segoe UI",system-ui,-apple-system,Arial,sans-serif;font-size:14px;line-height:1.4}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit}
+.wrap{max-width:1760px;margin:0 auto;padding:0 24px 48px}
+/* ---------- topo ---------- */
+.top{position:sticky;top:0;z-index:20;background:var(--bg);display:flex;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid #111;flex-wrap:wrap}
+.top .ico{width:20px;height:20px;color:var(--muted)}
+.top h1{font-size:20px;margin:0;font-weight:700;white-space:nowrap}
+.crumbs{display:flex;align-items:center;gap:8px;color:#ddd;font-size:15px;flex-wrap:wrap;padding-left:12px;border-left:1px solid #444}
+.crumbs a{color:#ddd}.crumbs a:hover{color:#fff;text-decoration:underline}
+.crumbs .sep{color:var(--dim)}
+.crumbs .cur{color:#fff}
+.top .right{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted);white-space:nowrap}
+.chip b{color:var(--text);font-weight:500}
+.btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid var(--line);border-radius:var(--radius);padding:6px 12px;cursor:pointer;color:var(--accent);font-size:13px}
+.btn:hover{background:#141414;border-color:#4a4a4a}
+.btn svg{width:16px;height:16px}
+/* ---------- ring ---------- */
+.ring{position:relative;flex:none}
+.ring svg{display:block;transform:rotate(-90deg)}
+.ring .lbl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring .v{font-weight:700;letter-spacing:-.3px}
+.ring .s{color:var(--muted)}
+/* ---------- faixa geral ---------- */
+.band{background:var(--band);border-radius:8px;padding:18px 24px;margin:18px 0 28px;display:flex;align-items:center;gap:28px;flex-wrap:wrap}
+.band .meta h2{margin:0 0 4px;font-size:18px}
+.band .meta p{margin:0;color:var(--muted);font-size:13px;max-width:720px}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-left:auto}
+.kpi{background:#141414;border:1px solid var(--line2);border-radius:8px;padding:10px 14px;min-width:120px}
+.kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.kpi .n{font-size:22px;font-weight:700;margin-top:2px}
+.kpi.bad .n{color:var(--s-bad)}.kpi.warn .n{color:var(--s-warn)}
+/* ---------- cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(285px,1fr));gap:16px}
+.card{background:var(--card);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;transition:transform .12s, box-shadow .12s;cursor:pointer;border:1px solid transparent}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.6);border-color:#3a3a3a}
+.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.card .hd{padding:14px 16px 6px;font-weight:700;font-size:14px;min-height:46px}
+.card .bd{padding:4px 16px 14px;display:flex;align-items:center;gap:14px;flex:1}
+.card .ft{display:flex;align-items:center;gap:8px;padding:9px 16px;font-size:13px;font-weight:600}
+.ft.red{background:var(--bad-bar)}.ft.green{background:var(--ok-bar)}
+.ft svg{width:18px;height:18px}
+.thumb{flex:1;height:84px;border-radius:4px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;min-width:0}
+.thumb svg.sys{width:40px;height:40px;color:#cfd8ff;opacity:.9}
+.thumb .tag{position:absolute;right:6px;bottom:5px;font-size:11px;color:#dfe5ff;opacity:.85}
+.thumb .tagl{position:absolute;left:6px;bottom:5px;font-size:11px;color:#dfe5ff;opacity:.85}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px;padding:6px 16px 14px;text-align:center}
+.mini .k{font-size:11px;color:#d5d5d5;font-weight:500;min-height:28px;display:flex;align-items:flex-end;justify-content:center}
+.mini .n{font-size:16px;font-weight:700}
+.mini .n.bad{color:var(--s-bad)}.mini .n.warn{color:var(--s-warn)}
+/* ---------- home ---------- */
+.home{display:grid;grid-template-columns:minmax(300px,380px) 1fr 1fr;gap:16px;align-items:start}
+.panel{background:var(--card);border-radius:var(--radius);padding:16px}
+.panel h3{margin:0 0 12px;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px}
+.panel h3 .sub{font-weight:400;color:var(--muted);font-size:12px;margin-left:auto}
+.rank{display:flex;flex-direction:column;gap:2px}
+.rank a{display:grid;grid-template-columns:1fr 54px 120px;gap:10px;align-items:center;padding:7px 8px;border-radius:4px}
+.rank a:hover{background:var(--card2)}
+.rank .nm{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank .nm small{display:block;color:var(--muted);font-size:11px}
+.rank .pct{font-weight:700;text-align:right}
+.bar{height:8px;background:#3a3a3a;border-radius:4px;overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:4px}
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;flex-wrap:wrap}
+.toolbar .title{font-size:16px;font-weight:700;margin-right:auto}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.seg button{background:transparent;border:0;padding:6px 10px;cursor:pointer;color:var(--muted);font-size:12px}
+.seg button.on{background:var(--card2);color:var(--text)}
+.seg button svg{width:16px;height:16px;display:block}
+input[type=search],input[type=number],input[type=date],select{background:#141414;border:1px solid var(--line);color:var(--text);border-radius:var(--radius);padding:6px 10px;font:inherit;font-size:13px}
+input[type=search]{min-width:220px}
+/* ---------- tabelas ---------- */
+.tbl-wrap{overflow:auto;border-radius:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:10px 10px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--card)}
+td{padding:10px 10px;border-bottom:1px solid var(--line2);vertical-align:top}
+tr.late td{background:rgba(239,68,68,.07)}
+tr.click{cursor:pointer}tr.click:hover td{background:var(--card2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}.dim{color:var(--dim)}
+.st-ok{color:#4ade80}.st-late{color:#f59e0b}.st-bad{color:var(--s-bad)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.p-N{background:rgba(34,197,94,.15);color:#4ade80;border-color:rgba(34,197,94,.35)}
+.p-M{background:rgba(229,193,0,.13);color:#facc15;border-color:rgba(229,193,0,.35)}
+.p-C{background:rgba(239,68,68,.16);color:#f87171;border-color:rgba(239,68,68,.4)}
+.p-P{background:rgba(127,150,255,.13);color:#a5b4fc;border-color:rgba(127,150,255,.35)}
+.p-X{background:#2f2f2f;color:#bdbdbd;border-color:#444}
+.p-A{background:rgba(245,144,36,.15);color:#fdba74;border-color:rgba(245,144,36,.4)}
+.p-new{background:#4a3a20;color:#f5c26b;font-weight:500;margin-left:6px}
+.sev{display:inline-flex;gap:2px;vertical-align:middle}
+.sev i{width:3px;height:12px;border-radius:1px;background:#4a4a4a;display:block}
+/* ---------- sistema / equipamento ---------- */
+.syshead{display:flex;gap:22px;align-items:center;flex-wrap:wrap}
+.syshead h2{margin:0 0 4px;font-size:20px}
+.syshead p{margin:0;color:var(--muted);font-size:13px;max-width:640px}
+.md{display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:16px;align-items:start}
+.md>*,.home>*{min-width:0}
+.eqlist{display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 150px);overflow:auto;position:sticky;top:76px;padding-right:2px}
+.eqi{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:var(--radius);padding:10px 12px;border:1px solid transparent;cursor:pointer;text-align:left;width:100%}
+.eqi:hover{background:var(--card2)}
+.eqi.on{border-color:var(--accent);background:#262a38}
+.eqi .t{flex:1;min-width:0}
+.eqi .t b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eqi .t small{color:var(--muted);font-size:11px}
+.dots{display:flex;gap:4px;margin-top:4px}
+.dots i{width:8px;height:8px;border-radius:50%;display:block}
+.detail{display:flex;flex-direction:column;gap:16px;min-width:0}
+.eqhead{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+.eqhead .info{flex:1;min-width:260px}
+.eqhead h2{margin:0 0 6px;font-size:20px}
+.eqhead .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.engbox{border-left:3px solid var(--c-eng);background:#1d1b26;padding:10px 12px;border-radius:4px;font-size:13px}
+.engbox .h{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.comp{margin-top:4px}
+.stack{display:flex;height:14px;border-radius:7px;overflow:hidden;background:#3a3a3a;margin:8px 0 12px}
+.stack i{display:block;height:100%}
+.pens{display:flex;flex-direction:column;gap:6px}
+.pen{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:start;font-size:13px}
+.pen .sw{width:10px;height:10px;border-radius:2px;margin-top:4px}
+.pen .pt{font-weight:700;color:#fca5a5;white-space:nowrap}
+.pen.zero .pt{color:var(--muted);font-weight:400}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tile{background:var(--card);border-radius:var(--radius);padding:12px 14px;cursor:pointer;border:1px solid transparent;text-align:left}
+.tile:hover{background:var(--card2)}
+.tile.on{border-color:var(--accent)}
+.tile .k{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.tile .k i{width:8px;height:8px;border-radius:2px;display:block}
+.tile .n{font-size:18px;font-weight:700;margin-top:6px}
+.tile .s{font-size:12px;color:var(--muted);margin-top:2px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;flex-wrap:wrap}
+.tabs button{background:transparent;border:0;padding:10px 14px;cursor:pointer;color:var(--muted);font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--text);border-bottom-color:#9a9a9a}
+.tabs .c{font-size:11px;color:var(--dim);margin-left:4px}
+.hist{display:flex;gap:3px;align-items:center}
+.hist i{width:10px;height:10px;border-radius:50%;display:block}
+.hist i.p{background:transparent!important;border:2px solid #7f96ff}
+.empty{color:var(--muted);padding:24px;text-align:center;font-size:13px}
+.note{font-size:12px;color:var(--muted);margin:0 0 10px}
+details summary{cursor:pointer;color:var(--accent);font-size:13px}
+.interp{font-size:12px;color:#cfcfcf;background:#1a1a1a;border-radius:4px;padding:10px;margin-top:6px}
+.params{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.params span{font-size:11px;background:#1a1a1a;border:1px solid var(--line2);border-radius:4px;padding:2px 6px;color:#cfcfcf}
+.params span b{color:var(--muted);font-weight:400;margin-right:4px}
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:40;display:none}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:#161616;border-left:1px solid var(--line);z-index:41;transform:translateX(100%);transition:transform .2s;overflow:auto;padding:20px 22px 40px}
+.open .scrim{display:block}.open .drawer{transform:none}
+.drawer h2{margin:0 0 4px;font-size:18px}
+.drawer h3{font-size:14px;margin:22px 0 8px}
+.drawer p,.drawer li{font-size:13px;color:#cfcfcf}
+.drawer .x{position:absolute;right:14px;top:14px;background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:22px;line-height:1}
+.form{display:grid;grid-template-columns:1fr 92px;gap:8px 12px;align-items:center}
+.form label{font-size:13px;color:#d4d4d4}
+.form input{width:100%}
+.form .grp{grid-column:1/-1;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-top:10px;display:flex;align-items:center;gap:6px}
+.form .grp i{width:8px;height:8px;border-radius:2px;display:block}
+.formula{background:#101010;border:1px solid var(--line2);border-radius:6px;padding:10px 12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#e5e5e5;white-space:pre-wrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:block}
+.foot{margin-top:28px;color:var(--dim);font-size:12px}
+@media (max-width:1250px){.home{grid-template-columns:1fr 1fr}.home>.fpso{grid-column:1/-1;max-width:420px}}
+@media (max-width:1000px){.md{grid-template-columns:1fr}.eqlist{position:static;max-height:340px}.tiles{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.wrap{padding:0 16px 40px}.top{padding:12px 16px;position:static}.eqhead .ring{margin:0 auto}.home{grid-template-columns:1fr}.band{padding:16px}.kpis{margin-left:0}.kpi{min-width:0;flex:1 1 40%}input[type=search]{min-width:0;width:100%}.rank a{grid-template-columns:1fr 46px 70px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M13 10l2 2-2 2"/></svg>
+  <h1>Visão geral</h1>
+  <nav class="crumbs" id="crumbs" aria-label="Navegação"></nav>
+  <div class="right">
+    <span class="chip">Data de referência <b id="refChip"></b></span>
+    <button class="btn" id="btnMethod" type="button" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+      Metodologia e pesos
+    </button>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<div id="drawerRoot">
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <button class="x" id="btnClose" aria-label="Fechar">×</button>
+    <div id="method"></div>
+  </aside>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+
+/* =====================================================================
+   Parâmetros do Health Score (editáveis no painel Metodologia)
+   ===================================================================== */
+const DEFAULTS = {
+  refDate: D.refDate,
+  oilCrit: 20, oilMonths: 24,
+  vibAlarm: 20, vibAlert: 10, vibMaint: 0,
+  sap1: 5, sapN: 10,
+  case1: 5, caseN: 10, sev1: 0.5, sev2: 0.75, sev3: 1, sev4: 1.5,
+  engI: 40, engR: 20, engPend: 5,
+};
+const STORE_KEY = 'hs-forte-params-v1';
+let P = Object.assign({}, DEFAULTS);
+try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s) Object.assign(P, s); } catch (e) {}
+const saveP = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(P)); } catch (e) {} };
+
+const UI = { sysView: 'grid', sysSort: 'score', tab: 'oil', sapLate: false, eqFilter: '' };
+
+const SRC = {
+  eng: { name: 'Relatório do engenheiro', color: 'var(--c-eng)' },
+  oil: { name: 'Análise de óleo', color: 'var(--c-oil)' },
+  vib: { name: 'Vibração', color: 'var(--c-vib)' },
+  sap: { name: 'Notas SAP', color: 'var(--c-sap)' },
+  case: { name: 'Cases', color: 'var(--c-case)' },
+};
+const OIL_TXT = { N: 'Normal', M: 'Monitorar', C: 'Crítico', P: 'Em análise' };
+const OIL_COL = { N: '#22c55e', M: '#e5c100', C: '#ef4444', P: '#7f96ff' };
+const SEV_TXT = { 1: 'Baixa', 2: 'Média', 3: 'Alta', 4: 'Crítica' };
+const SEV_COL = { 1: '#e8e8e8', 2: '#f0a020', 3: '#f08a8a', 4: '#e5484d' };
+const ENG_TXT = { D: 'Disponível', R: 'Com restrição', I: 'Indisponível' };
+
+const sysById = Object.fromEntries(D.systems.map(s => [s.id, s]));
+const eqById = Object.fromEntries(D.equipment.map(e => [e.id, e]));
+const caseById = Object.fromEntries(D.cases.map(c => [c.id, c]));
+
+/* =====================================================================
+   Utilidades
+   ===================================================================== */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtD = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '-';
+const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+const addMonths = (iso, m) => { const d = new Date(iso + 'T00:00:00'); d.setMonth(d.getMonth() + m); return d.toISOString().slice(0, 10); };
+const scoreColor = s => s >= 90 ? 'var(--s-good)' : s >= 75 ? 'var(--s-ok)' : s >= 60 ? 'var(--s-warn)' : 'var(--s-bad)';
+const r0 = v => Math.round(v);
+const fmtPts = v => (Math.round(v * 10) / 10).toLocaleString('pt-BR');
+
+function ring(score, size = 80, stroke = 5, label = 'Saúde') {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, v = Math.max(0, Math.min(100, score));
+  const fs = size >= 110 ? 30 : size >= 76 ? 19 : size >= 56 ? 14 : 12;
+  return `<div class="ring" style="width:${size}px;height:${size}px" role="img" aria-label="Health Score ${r0(v)}%">
+    <svg width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="#3a3a3a" stroke-width="${stroke}"/>
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="${scoreColor(v)}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c * v / 100} ${c}"/></svg>
+    <div class="lbl"><span class="v" style="font-size:${fs}px">${r0(v)}%</span>${size >= 56 && label ? `<span class="s" style="font-size:${Math.max(9, fs * 0.45)}px">${label}</span>` : ''}</div></div>`;
+}
+const sevBars = n => `<span class="sev" title="Criticidade ${SEV_TXT[n]}">${[1, 2, 3, 4].map(i => `<i style="${i <= n ? 'background:' + SEV_COL[n] : ''}"></i>`).join('')}</span>`;
+const bell = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 16V11a6 6 0 1 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M3 7c.6-1.6 1.5-3 3-4M21 7c-.6-1.6-1.5-3-3-4"/></svg>';
+const bellOff = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 16V11a6 6 0 0 1 9.5-4.9M18 11v5l2 2H8"/><path d="M10 20a2 2 0 0 0 4 0"/><path d="M3 3l18 18"/></svg>';
+
+const ICONS = {
+  power: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/><path d="M3 21h18"/>',
+  compressor: '<circle cx="9" cy="12" r="5"/><path d="M14 9h7v6h-7M9 7v-3M6 21h6M9 17v4"/>',
+  fire: '<path d="M12 22c4 0 7-3 7-7 0-5-5-7-5-12-3 2-4 5-4 7-1-1-2-2-2-4-2 2-3 5-3 9 0 4 3 7 7 7z"/>',
+  pump: '<circle cx="12" cy="12" r="6"/><path d="M12 6V2h6M18 12h4M6 18l-3 3h18l-3-3"/>',
+  wave: '<path d="M2 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
+  cool: '<path d="M12 2v20M4 6l16 12M20 6 4 18M9 3l3 3 3-3M9 21l3-3 3 3"/>',
+  oil: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/><path d="M9 15a3 3 0 0 0 3 3"/>',
+  drop: '<path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z"/>',
+  process: '<rect x="3" y="8" width="18" height="8" rx="4"/><path d="M7 8V5M17 8V5M7 16v3M17 16v3M11 12h2"/>',
+  valve: '<path d="M3 8v8l9-4zM21 8v8l-9-4zM12 12V5M8 5h8"/>',
+  air: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h8"/>',
+  heat: '<path d="M8 3c-2 3 2 4 0 7M12 3c-2 3 2 4 0 7M16 3c-2 3 2 4 0 7M4 14h16v6H4z"/>',
+  water: '<path d="M7 3s4 5 4 8a4 4 0 0 1-8 0c0-3 4-8 4-8zM17 9s4 5 4 8a4 4 0 0 1-8 0c0-3 4-8 4-8z"/>',
+  radio: '<path d="M12 12v10M8 22h8M8.5 8.5a5 5 0 0 1 7 0M5.6 5.6a9 9 0 0 1 12.8 0"/><circle cx="12" cy="12" r="1.5"/>',
+  crane: '<path d="M5 22V4h3v18M2 22h9M8 4l13 4M8 4l4 4h9M19 8v6"/><rect x="17" y="14" width="4" height="3"/>',
+  ship: '<path d="M2 17h20l-3 4H5zM5 17V9h6v8M11 12h6v5M7 9V5h2v4"/>',
+  boat: '<path d="M3 14h18l-2 5H5zM6 14l2-6h8l2 6M12 4v4"/>',
+  fan: '<circle cx="12" cy="12" r="2"/><path d="M12 10c0-5 4-7 6-5s-1 5-4 6M14 12c5 0 7 4 5 6s-5-1-6-4M12 14c0 5-4 7-6 5s1-5 4-6M10 12c-5 0-7-4-5-6s5 1 6 4"/>',
+};
+const sysIcon = (k, cls = 'sys') => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICONS[k] || ICONS.process}</svg>`;
+const THUMB_BG = ['#1d3557,#2a6f97', '#283c63,#4a6fa5', '#1b4332,#2d6a4f', '#3c2a4d,#6a4c93', '#3d2c1e,#7f5539', '#14213d,#2b4c7e'];
+
+/* =====================================================================
+   Cálculo do Health Score
+   ===================================================================== */
+const VIB_RANK = s => /cr[ií]tico/i.test(s) ? 4 : /alarme/i.test(s) ? 3 : /alerta/i.test(s) ? 2 : /manuten/i.test(s) ? 1 : /normal/i.test(s) ? 0 : -1;
+const VIB_CLS = s => ({ 4: 'p-C', 3: 'p-C', 2: 'p-A', 1: 'p-X', 0: 'p-N' }[VIB_RANK(s)] || 'p-X');
+
+function oilGroups(e) {
+  const g = {};
+  for (const o of e.oil) (g[o.s + '|' + o.c] ||= []).push(o);
+  const limit = addMonths(P.refDate, -P.oilMonths);
+  return Object.values(g).map(arr => {
+    arr.sort((a, b) => (a.d || '').localeCompare(b.d || ''));
+    const valid = arr.filter(o => o.st !== 'P');
+    const last = valid[valid.length - 1] || null;
+    const pend = arr.filter(o => o.st === 'P' && (!last || (o.d || '') >= (last.d || '')));
+    const inWin = last && last.d >= limit;
+    return { s: arr[0].s, c: arr[0].c, f: arr[0].f, fr: arr[0].fr, all: arr, last, pend, inWin };
+  }).sort((a, b) => ((b.last && b.last.d) || '').localeCompare((a.last && a.last.d) || ''));
+}
+
+function scoreEquipment(e) {
+  const pens = [];
+  const add = (src, pts, txt) => pens.push({ src, pts, txt });
+  // 1. relatório do engenheiro (pptx)
+  if (e.eng) {
+    const obs = e.eng.obs ? ': ' + e.eng.obs : '';
+    if (e.eng.st === 'I') add('eng', P.engI, 'Indisponível' + obs);
+    else if (e.eng.st === 'R') add('eng', P.engR, 'Com restrição' + obs);
+    else if (e.eng.pend) add('eng', P.engPend, 'Disponível com pendência' + obs);
+  }
+  // 2. óleo: laudo mais recente de cada compartimento
+  const og = oilGroups(e);
+  const crit = og.filter(g => g.last && g.inWin && g.last.st === 'C');
+  if (crit.length) add('oil', P.oilCrit, `Laudo mais recente crítico em ${crit.length} compartimento(s): ` + crit.map(g => `${g.c} (${g.s}, ${fmtD(g.last.d)})`).join('; '));
+  // 3. vibração Ago/26
+  let worst = -1, worstRows = [];
+  for (const v of e.vib) { const r = VIB_RANK(v.cur); if (r > worst) { worst = r; worstRows = [v]; } else if (r === worst) worstRows.push(v); }
+  const tags = worstRows.map(v => v.tag + (v.just ? ` (${v.just})` : '')).join('; ');
+  if (worst >= 3) add('vib', P.vibAlarm, `${D.vibMeta.col_cur} em ${worst === 4 ? 'Crítico' : 'Alarme'}: ${tags}`);
+  else if (worst === 2) add('vib', P.vibAlert, `${D.vibMeta.col_cur} em Alerta: ${tags}`);
+  else if (worst === 1 && P.vibMaint > 0) add('vib', P.vibMaint, `${D.vibMeta.col_cur} em Manutenção: ${tags}`);
+  // 4. notas SAP atrasadas
+  const late = e.sap.filter(n => n.cd && n.cd < P.refDate);
+  if (late.length === 1) add('sap', P.sap1, `1 nota com conclusão desejada vencida (${late[0].n}, ${fmtD(late[0].cd)})`);
+  else if (late.length > 1) add('sap', P.sapN, `${late.length} notas com conclusão desejada vencida`);
+  // 5. cases atrasados, ponderados pela criticidade
+  const cs = e.cases.map(id => caseById[id]).filter(Boolean);
+  const lateC = cs.filter(c => /atrasad/i.test(c.st));
+  if (lateC.length) {
+    const maxSev = Math.max(...lateC.map(c => c.sev));
+    const mult = P['sev' + maxSev];
+    const base = lateC.length === 1 ? P.case1 : P.caseN;
+    add('case', base * mult, `${lateC.length} case(s) atrasado(s) (${lateC.map(c => c.id).join(', ')}), criticidade ${SEV_TXT[maxSev]} (x${String(mult).replace('.', ',')})`);
+  }
+  const total = pens.reduce((s, p) => s + p.pts, 0);
+  return {
+    score: Math.max(0, 100 - total), pens: pens.filter(p => p.pts > 0), og, late, cs, lateC,
+    vibWorst: worst, oilCrit: crit.length,
+  };
+}
+
+let R = null;
+function computeAll() {
+  const eq = {}, sys = {};
+  for (const e of D.equipment) eq[e.id] = scoreEquipment(e);
+  for (const s of D.systems) {
+    const list = D.equipment.filter(e => e.sys === s.id);
+    const sw = list.reduce((a, e) => a + e.w, 0);
+    const score = sw ? list.reduce((a, e) => a + e.w * eq[e.id].score, 0) / sw : 100;
+    const pend = list.reduce((a, e) => a + eq[e.id].pens.length, 0);
+    const worst = list.slice().sort((a, b) => eq[a.id].score - eq[b.id].score)[0];
+    const notes = D.sysNotes[s.id] || [];
+    sys[s.id] = { score, pend, list, worst, notes, notesLate: notes.filter(n => n.cd && n.cd < P.refDate).length };
+  }
+  const W = D.systems.reduce((a, s) => a + s.w, 0);
+  const global = D.systems.reduce((a, s) => a + s.w * sys[s.id].score, 0) / W;
+  const all = D.equipment.map(e => eq[e.id]);
+  const kp = {
+    sys: D.systems.length, eq: D.equipment.length,
+    ind: D.equipment.filter(e => e.eng && e.eng.st === 'I').length,
+    res: D.equipment.filter(e => e.eng && e.eng.st === 'R').length,
+    oil: all.filter(x => x.oilCrit).length,
+    vib: all.filter(x => x.vibWorst >= 3).length,
+    vibAl: all.filter(x => x.vibWorst === 2).length,
+    sap: all.reduce((a, x) => a + x.late.length, 0),
+    sapEq: all.filter(x => x.late.length).length,
+    cases: D.cases.filter(c => /atrasad/i.test(c.st)).length,
+    pend: all.reduce((a, x) => a + x.pens.length, 0),
+  };
+  R = { eq, sys, global, kp };
+}
+
+/* =====================================================================
+   Rotas
+   ===================================================================== */
+function route() {
+  const h = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  if (h[0] === 'sistemas') return { v: 'systems' };
+  if (h[0] === 'sistema' && sysById[h[1]]) return { v: 'system', sys: h[1], eq: eqById[h[2]] && eqById[h[2]].sys === h[1] ? h[2] : null };
+  return { v: 'home' };
+}
+let lastView = null;
+function render() {
+  const rt = route();
+  document.getElementById('refChip').textContent = fmtD(P.refDate);
+  crumbs(rt);
+  const app = document.getElementById('app');
+  if (rt.v === 'home') app.innerHTML = viewHome();
+  else if (rt.v === 'systems') app.innerHTML = viewSystems();
+  else app.innerHTML = viewSystem(rt.sys, rt.eq);
+  bind(rt);
+  const key = rt.v + (rt.sys || '');
+  if (key !== lastView) window.scrollTo(0, 0);
+  lastView = key;
+}
+function crumbs(rt) {
+  const parts = [`<a href="#/">PRIO</a>`, `<span class="sep">›</span>`];
+  if (rt.v === 'home') parts.push(`<span class="cur">FPSO Forte</span>`);
+  else {
+    parts.push(`<a href="#/sistemas">FPSO Forte</a>`);
+    if (rt.v === 'system') {
+      parts.push(`<span class="sep">›</span>`, rt.eq ? `<a href="#/sistema/${rt.sys}">${esc(sysById[rt.sys].name)}</a>` : `<span class="cur">${esc(sysById[rt.sys].name)}</span>`);
+      if (rt.eq) parts.push(`<span class="sep">›</span>`, `<span class="cur">${esc(eqById[rt.eq].name)}</span>`);
+    } else parts.push(`<span class="sep">›</span>`, `<span class="cur">Sistemas</span>`);
+  }
+  document.getElementById('crumbs').innerHTML = parts.join('');
+}
+
+/* =====================================================================
+   Página 1: FPSO Forte
+   ===================================================================== */
+const FPSO_ART = `<svg viewBox="0 0 160 84" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d8fc9"/><stop offset=".62" stop-color="#a9c6e8"/><stop offset=".62" stop-color="#2d5f92"/><stop offset="1" stop-color="#173a63"/></linearGradient></defs>
+  <rect width="160" height="84" fill="url(#sky)"/>
+  <path d="M14 56h132l-8 10H24z" fill="#3b3f45"/><path d="M14 56h132v3H14z" fill="#b8402c"/>
+  <rect x="30" y="46" width="14" height="10" fill="#8d949c"/><rect x="46" y="44" width="16" height="12" fill="#a3aab1"/><rect x="64" y="47" width="12" height="9" fill="#7c848c"/>
+  <rect x="78" y="43" width="18" height="13" fill="#9aa1a8"/><rect x="98" y="47" width="12" height="9" fill="#868d95"/>
+  <rect x="116" y="40" width="16" height="16" fill="#e6e6e6"/><rect x="119" y="34" width="10" height="6" fill="#d0d0d0"/><path d="M132 42h10v3h-10z" fill="#4b8b3b"/>
+  <path d="M22 56 18 24" stroke="#c9c9c9" stroke-width="1.5"/><path d="M18 24c-2-4 1-7 0-10 3 3 4 7 0 10z" fill="#ffb347"/>
+  <path d="M54 44V30l12 10" stroke="#d9a400" stroke-width="1.4" fill="none"/>
+  <path d="M0 70c10-2 20 2 30 0s20-2 30 0 20 2 30 0 20-2 30 0 20 2 40 0v14H0z" fill="#12304f" opacity=".7"/>
+</svg>`;
+
+function viewHome() {
+  const k = R.kp;
+  const sysRank = D.systems.slice().sort((a, b) => R.sys[a.id].score - R.sys[b.id].score);
+  const eqRank = D.equipment.slice().sort((a, b) => R.eq[a.id].score - R.eq[b.id].score || b.w - a.w).slice(0, 12);
+  const mini = (label, n, cls = '') => `<div><div class="k">${label}</div><div class="n ${cls}">${n}</div></div>`;
+  return `
+  <section class="band">
+    ${ring(R.global, 84, 4)}
+    <div class="meta"><h2>FPSO Forte</h2>
+      <p>Health Score global calculado pela média ponderada dos ${k.sys} sistemas, que por sua vez é a média ponderada dos ${k.eq} equipamentos monitorados. Cada equipamento parte de 100% e perde pontos por laudo de óleo crítico, vibração em alarme, notas SAP e cases atrasados e pela avaliação do engenheiro de manutenção.</p></div>
+    <div class="kpis">
+      <div class="kpi bad"><div class="k">Indisponíveis</div><div class="n">${k.ind}</div></div>
+      <div class="kpi warn"><div class="k">Com restrição</div><div class="n">${k.res}</div></div>
+      <div class="kpi"><div class="k">Pendências</div><div class="n">${k.pend}</div></div>
+    </div>
+  </section>
+  <section class="home">
+    <a class="card fpso" href="#/sistemas" aria-label="Abrir sistemas do FPSO Forte">
+      <div class="hd">FPSO Forte</div>
+      <div class="bd">${ring(R.global, 80, 4)}<div class="thumb">${FPSO_ART}</div></div>
+      <div class="mini">
+        ${mini('Sistemas', k.sys)}${mini('Equipamentos', k.eq)}${mini('Indisponíveis', k.ind, k.ind ? 'bad' : '')}
+        ${mini('Com restrição', k.res, k.res ? 'warn' : '')}${mini('Óleo crítico', k.oil, k.oil ? 'bad' : '')}${mini('Vibração em alarme', k.vib, k.vib ? 'bad' : '')}
+        ${mini('Vibração em alerta', k.vibAl, k.vibAl ? 'warn' : '')}${mini('Notas SAP atrasadas', k.sap, k.sap ? 'warn' : '')}${mini('Cases atrasados', k.cases, k.cases ? 'warn' : '')}
+      </div>
+      <div class="ft ${k.pend ? 'red' : 'green'}">${k.pend ? bell : bellOff}${k.pend ? k.pend + ' pendências' : 'Sem pendências'}</div>
+    </a>
+    <div class="panel">
+      <h3>Health Score por sistema <span class="sub">peso no global</span></h3>
+      <div class="rank">${sysRank.map(s => { const v = R.sys[s.id].score; return `
+        <a href="#/sistema/${s.id}"><span class="nm">${esc(s.name)}<small>Peso ${s.w} · ${R.sys[s.id].list.length} equipamentos</small></span>
+        <span class="pct" style="color:${scoreColor(v)}">${r0(v)}%</span><span class="bar"><i style="width:${v}%;background:${scoreColor(v)}"></i></span></a>`; }).join('')}</div>
+    </div>
+    <div class="panel">
+      <h3>Equipamentos com menor Health Score <span class="sub">top 12</span></h3>
+      <div class="rank">${eqRank.map(e => { const v = R.eq[e.id].score; return `
+        <a href="#/sistema/${e.sys}/${e.id}"><span class="nm">${esc(e.name)}<small>${esc(sysById[e.sys].name)} · peso ${e.w}</small></span>
+        <span class="pct" style="color:${scoreColor(v)}">${r0(v)}%</span><span class="bar"><i style="width:${v}%;background:${scoreColor(v)}"></i></span></a>`; }).join('')}</div>
+    </div>
+  </section>
+  ${footer()}`;
+}
+function footer() {
+  const s = D.sources;
+  return `<p class="foot">Fontes: ${esc(s.oleo)} · ${esc(s.vib)} (aba FPSO Forte, coluna ${esc(D.vibMeta.col_cur)}) · ${esc(s.sap)} · ${esc(s.pptx)} · ${esc(s.cases)}. Gerado em ${esc(D.generatedAt)}.</p>`;
+}
+
+/* =====================================================================
+   Página 2: Sistemas
+   ===================================================================== */
+function viewSystems() {
+  const list = D.systems.slice();
+  if (UI.sysSort === 'score') list.sort((a, b) => R.sys[a.id].score - R.sys[b.id].score);
+  else if (UI.sysSort === 'w') list.sort((a, b) => b.w - a.w || R.sys[a.id].score - R.sys[b.id].score);
+  else list.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+  const head = `
+  <section class="band">
+    ${ring(R.global, 84, 4)}
+    <div class="meta"><h2>FPSO Forte · Sistemas</h2><p>Clique em um sistema para ver os equipamentos e o dashboard de cada um. O Health Score do sistema é a média dos equipamentos ponderada pela criticidade.</p></div>
+  </section>
+  <div class="toolbar">
+    <span class="title">${list.length} sistemas</span>
+    <label class="muted" for="sysSort" style="font-size:12px">Ordenar</label>
+    <select id="sysSort">
+      <option value="score" ${UI.sysSort === 'score' ? 'selected' : ''}>Menor Health Score</option>
+      <option value="w" ${UI.sysSort === 'w' ? 'selected' : ''}>Peso no FPSO</option>
+      <option value="name" ${UI.sysSort === 'name' ? 'selected' : ''}>Nome</option>
+    </select>
+    <div class="seg" role="group" aria-label="Visualização">
+      <button type="button" data-view="list" class="${UI.sysView === 'list' ? 'on' : ''}" aria-label="Lista"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+      <button type="button" data-view="grid" class="${UI.sysView === 'grid' ? 'on' : ''}" aria-label="Cartões"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></button>
+    </div>
+  </div>`;
+  if (UI.sysView === 'list') {
+    return head + `<div class="panel tbl-wrap"><table><thead><tr><th>Sistema</th><th class="num">Peso</th><th class="num">Equip.</th><th>Health Score</th><th class="num">Pendências</th><th>Pior equipamento</th></tr></thead><tbody>
+    ${list.map(s => { const x = R.sys[s.id]; return `<tr class="click" data-href="#/sistema/${s.id}"><td><b>${esc(s.name)}</b></td><td class="num">${s.w}</td><td class="num">${x.list.length}</td>
+      <td><div style="display:flex;align-items:center;gap:10px"><b style="color:${scoreColor(x.score)};width:42px">${r0(x.score)}%</b><span class="bar" style="width:140px"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></span></div></td>
+      <td class="num">${x.pend}</td><td>${x.worst ? esc(x.worst.name) + ` <span class="muted">(${r0(R.eq[x.worst.id].score)}%)</span>` : '-'}</td></tr>`; }).join('')}
+    </tbody></table></div>` + footer();
+  }
+  return head + `<div class="grid">${list.map((s, i) => { const x = R.sys[s.id]; const bg = THUMB_BG[D.systems.indexOf(s) % THUMB_BG.length];
+    return `<a class="card" href="#/sistema/${s.id}">
+      <div class="hd">${esc(s.name)}</div>
+      <div class="bd">${ring(x.score, 80, 4)}<div class="thumb" style="background:linear-gradient(135deg,${bg})">${sysIcon(s.icon)}<span class="tagl">${x.list.length} equip.</span><span class="tag">peso ${s.w}</span></div></div>
+      <div class="ft ${x.pend ? 'red' : 'green'}">${x.pend ? bell : bellOff}${x.pend ? x.pend + (x.pend > 1 ? ' pendências' : ' pendência') : 'Sem pendências'}</div>
+    </a>`; }).join('')}</div>` + footer();
+}
+
+/* =====================================================================
+   Página 3: Equipamentos do sistema + dashboard
+   ===================================================================== */
+function viewSystem(sid, eqid) {
+  const s = sysById[sid], x = R.sys[sid];
+  const list = x.list.slice().sort((a, b) => R.eq[a.id].score - R.eq[b.id].score || b.w - a.w);
+  const sel = eqid || (list[0] && list[0].id);
+  const f = UI.eqFilter.trim().toLowerCase();
+  const shown = f ? list.filter(e => (e.name + ' ' + e.tag).toLowerCase().includes(f)) : list;
+  const dot = src => `<i style="background:${SRC[src].color}" title="${SRC[src].name}"></i>`;
+  return `
+  <section class="band syshead">
+    ${ring(x.score, 96, 5)}
+    <div style="flex:1;min-width:240px"><h2>${esc(s.name)}</h2><p>${esc(s.why)}</p>
+      <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
+        <span class="chip">Peso no FPSO <b>${s.w}/5</b></span>
+        <span class="chip">Equipamentos <b>${list.length}</b></span>
+        <span class="chip">Pendências <b>${x.pend}</b></span>
+        ${x.notes.length ? `<span class="chip" title="Notas abertas em locais do sistema sem equipamento cadastrado. Não entram na nota.">Notas SAP só no sistema <b>${x.notes.length}</b>${x.notesLate ? ` · <b style="color:var(--s-warn)">${x.notesLate} atrasadas</b>` : ''}</span>` : ''}
+      </div>
+    </div>
+    <a class="btn" href="#/sistemas">← Voltar aos sistemas</a>
+  </section>
+  <div class="md">
+    <div>
+      <input type="search" id="eqFilter" placeholder="Filtrar equipamento ou TAG" value="${esc(UI.eqFilter)}" aria-label="Filtrar equipamentos" style="width:100%;margin-bottom:8px">
+      <div class="eqlist" id="eqlist">
+      ${shown.map(e => { const r = R.eq[e.id]; return `<button type="button" class="eqi ${e.id === sel ? 'on' : ''}" data-eq="${e.id}">
+        ${ring(r.score, 46, 4, '')}
+        <span class="t"><b>${esc(e.name)}</b><small>${esc(e.tag)} · peso ${e.w}${e.eng ? ' · ' + ENG_TXT[e.eng.st] : ''}</small>
+        <span class="dots">${[...new Set(r.pens.map(p => p.src))].map(dot).join('')}</span></span></button>`; }).join('') || '<div class="empty">Nenhum equipamento encontrado.</div>'}
+      </div>
+    </div>
+    <div class="detail" id="detail">${sel ? viewEquipment(eqById[sel]) : ''}</div>
+  </div>
+  ${x.notes.length ? sysNotesPanel(x) : ''}
+  ${footer()}`;
+}
+
+function sysNotesPanel(x) {
+  return `<details class="panel" style="margin-top:16px"><summary>Notas SAP abertas em locais do sistema sem equipamento cadastrado (${x.notes.length}, ${x.notesLate} atrasadas). Informativo, não entra no cálculo.</summary>
+    <div class="tbl-wrap" style="margin-top:10px;max-height:420px">${sapTable(x.notes)}</div></details>`;
+}
+
+function viewEquipment(e) {
+  const r = R.eq[e.id], s = sysById[e.sys];
+  const tot = r.pens.reduce((a, p) => a + p.pts, 0);
+  const openCases = r.cs.filter(c => !/execut/i.test(c.st));
+  const pendOil = r.og.reduce((a, g) => a + g.pend.length, 0);
+  const lastOil = r.og.filter(g => g.last && g.inWin);
+  const worstOil = lastOil.some(g => g.last.st === 'C') ? 'C' : lastOil.some(g => g.last.st === 'M') ? 'M' : lastOil.length ? 'N' : null;
+  const vibTxt = r.vibWorst >= 0 ? ['Manutenção', 'Manutenção', 'Alerta', 'Alarme', 'Crítico'][Math.max(1, r.vibWorst)] : null;
+  const vibLbl = r.vibWorst === 0 ? 'Normal' : vibTxt;
+  const tile = (key, label, n, sub, color) => `<button type="button" class="tile ${UI.tab === key ? 'on' : ''}" data-tab="${key}"><div class="k"><i style="background:${color}"></i>${label}</div><div class="n">${n}</div><div class="s">${sub}</div></button>`;
+  const tabs = [['oil', 'Análise de Óleo', r.og.length], ['vib', 'Vibração', e.vib.length], ['sap', 'Notas SAP', e.sap.length], ['case', 'Cases', r.cs.length]];
+  return `
+  <div class="panel eqhead">
+    ${ring(r.score, 128, 7)}
+    <div class="info">
+      <h2>${esc(e.name)}</h2>
+      <div class="chips">
+        <span class="chip">TAG <b>${esc(e.tag)}</b></span>
+        <span class="chip">Sistema <b>${esc(s.name)}</b></span>
+        <span class="chip" title="Peso do equipamento na média do sistema">Criticidade <b>${e.w}/5</b></span>
+        ${e.sapPrefix.length ? `<span class="chip">Local SAP <b>${esc(e.sapPrefix.join(', '))}</b></span>` : ''}
+      </div>
+      ${e.eng ? `<div class="engbox"><div class="h">Avaliação do engenheiro de manutenção</div>
+        <span class="pill ${e.eng.st === 'D' ? 'p-N' : e.eng.st === 'R' ? 'p-A' : 'p-C'}">${ENG_TXT[e.eng.st]}</span>
+        ${e.eng.obs ? ` <span>${esc(e.eng.obs)}</span>` : ''}${e.eng.os ? `<div class="muted" style="margin-top:4px">Ordem de serviço: ${esc(e.eng.os)}</div>` : ''}</div>`
+      : `<div class="engbox" style="border-left-color:#555"><div class="h">Avaliação do engenheiro de manutenção</div><span class="muted">Equipamento não citado no relatório.</span></div>`}
+    </div>
+    <div class="comp" style="flex:1 1 100%">
+      <h3 style="margin:6px 0 0;font-size:14px">Composição do Health Score</h3>
+      <div class="stack" title="Verde: nota final. Demais cores: pontos perdidos por fonte.">
+        <i style="width:${r.score}%;background:${scoreColor(r.score)}"></i>
+        ${r.pens.map(p => `<i style="width:${Math.min(p.pts, 100)}%;background:${SRC[p.src].color};opacity:.85" title="${esc(SRC[p.src].name)}: -${fmtPts(p.pts)}"></i>`).join('')}
+      </div>
+      <div class="pens">
+        <div class="pen zero"><span></span><span>Nota inicial</span><span class="pt">100</span></div>
+        ${r.pens.map(p => `<div class="pen"><span class="sw" style="background:${SRC[p.src].color}"></span><span><b>${SRC[p.src].name}.</b> ${esc(p.txt)}</span><span class="pt">-${fmtPts(p.pts)}</span></div>`).join('')
+          || '<div class="pen zero"><span></span><span>Nenhuma penalidade nas fontes avaliadas.</span><span class="pt">0</span></div>'}
+        <div class="pen" style="border-top:1px solid var(--line);padding-top:6px"><span></span><b>Health Score</b><span class="pt" style="color:${scoreColor(r.score)}">${fmtPts(r.score)}%</span></div>
+        ${tot > 100 ? `<div class="note">Penalidades somam ${fmtPts(tot)} pontos. A nota é limitada a 0%.</div>` : ''}
+      </div>
+    </div>
+  </div>
+  <div class="tiles">
+    ${tile('oil', 'Análise de óleo', worstOil ? `<span class="pill p-${worstOil}">${OIL_TXT[worstOil]}</span>` : '<span class="muted" style="font-size:14px">Sem laudo válido</span>', `${r.og.length} compartimento(s)${pendOil ? ` · ${pendOil} em análise` : ''}`, 'var(--c-oil)')}
+    ${tile('vib', 'Vibração ' + esc(D.vibMeta.col_cur), vibLbl ? `<span class="pill ${VIB_CLS(vibLbl)}">${vibLbl}</span>` : '<span class="muted" style="font-size:14px">Sem medição</span>', `${e.vib.length} ponto(s) na rota`, 'var(--c-vib)')}
+    ${tile('sap', 'Notas SAP', `${e.sap.length} <span class="muted" style="font-size:13px;font-weight:400">abertas</span>`, r.late.length ? `<span class="st-late">${r.late.length} atrasada(s)</span>` : 'Nenhuma atrasada', 'var(--c-sap)')}
+    ${tile('case', 'Cases', `${openCases.length} <span class="muted" style="font-size:13px;font-weight:400">em aberto</span>`, r.lateC.length ? `<span class="st-late">${r.lateC.length} atrasado(s)</span>` : `${r.cs.length} no total`, 'var(--c-case)')}
+  </div>
+  <div class="panel">
+    <div class="tabs" role="tablist">${tabs.map(([k, l, c]) => `<button type="button" role="tab" aria-selected="${UI.tab === k}" class="${UI.tab === k ? 'on' : ''}" data-tab="${k}">${l}<span class="c">${c}</span></button>`).join('')}</div>
+    ${UI.tab === 'oil' ? oilTab(e, r) : UI.tab === 'vib' ? vibTab(e) : UI.tab === 'sap' ? sapTab(e, r) : caseTab(r)}
+  </div>`;
+}
+
+function oilTab(e, r) {
+  if (!r.og.length) return '<div class="empty">Sem amostras de óleo associadas a este equipamento no relatório.</div>';
+  const limit = addMonths(P.refDate, -P.oilMonths);
+  return `<p class="note">Status do laudo mais recente de cada compartimento. Laudos anteriores a ${fmtD(limit)} (janela de ${P.oilMonths} meses) aparecem esmaecidos e não penalizam. Bolinhas: histórico de coletas, da mais antiga para a mais recente. Contorno azul: amostra em análise.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Série</th><th>Compartimento</th><th>Fluido</th><th>Último laudo</th><th>Status</th><th>Histórico</th><th></th></tr></thead><tbody>
+  ${r.og.map((g, i) => { const l = g.last; const p = l ? Object.entries(l.p || {}) : [];
+    return `<tr style="${l && !g.inWin ? 'opacity:.55' : ''}">
+    <td><b>${esc(g.s)}</b><div class="muted" style="font-size:11px">${esc(g.fr)}</div></td><td>${esc(g.c)}</td><td>${esc(g.f)}</td>
+    <td>${l ? fmtD(l.d) : '-'}${g.pend.length ? `<div style="font-size:11px;color:#a5b4fc">coleta ${fmtD(g.pend[g.pend.length - 1].d)} em análise</div>` : ''}</td>
+    <td>${l ? `<span class="pill p-${l.st}">${OIL_TXT[l.st]}</span>` : '<span class="pill p-P">Em análise</span>'}</td>
+    <td><span class="hist">${g.all.slice(-10).map(o => `<i class="${o.st === 'P' ? 'p' : ''}" style="background:${OIL_COL[o.st]}" title="${fmtD(o.d)} · ${OIL_TXT[o.st]} · ${esc(o.n)}"></i>`).join('')}</span></td>
+    <td>${l && (l.tx || p.length) ? `<details><summary>Laudo</summary>
+      <div class="params">${p.map(([k, v]) => `<span><b>${esc(k)}</b>${esc(v)}</span>`).join('')}</div>
+      <div class="muted" style="font-size:11px;margin-top:6px">Amostra ${esc(l.n)}${l.os ? ' · OS ' + esc(l.os) : ''}${l.ol ? ' · ' + esc(l.ol) : ''}</div>
+      ${l.tx ? `<div class="interp">${esc(l.tx)}</div>` : ''}</details>` : ''}</td></tr>`; }).join('')}
+  </tbody></table></div>`;
+}
+
+function vibTab(e) {
+  if (!e.vib.length) return '<div class="empty">Equipamento fora da rota de vibração do RDO.</div>';
+  const m = D.vibMeta;
+  return `<p class="note">Campanha de ${fmtD(m.embarque)} a ${fmtD(m.desembarque)}${m.resp ? ', coleta ' + esc(m.resp) : ''}. A nota usa a coluna ${esc(m.col_cur)}.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Tag</th><th>Descrição / grupo</th><th>Área</th><th>${esc(m.col_prev)}</th><th>${esc(m.col_cur)}</th><th>Data</th><th>Justificativa</th><th>Observações</th></tr></thead><tbody>
+  ${e.vib.map(v => `<tr><td><b>${esc(v.tag)}</b></td><td>${esc(v.desc || v.grp || '-')}</td><td>${esc(v.area)}</td>
+    <td>${v.prev ? `<span class="pill ${VIB_CLS(v.prev)}">${esc(v.prev)}</span>` : '-'}</td>
+    <td>${v.cur ? `<span class="pill ${VIB_CLS(v.cur)}">${esc(v.cur)}</span>` : '-'}</td>
+    <td>${fmtD(v.dt)}</td><td>${esc(v.just || '-')}</td><td class="muted">${esc(v.obs || '-')}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function sapTable(notes) {
+  return `<table><thead><tr><th>Nota</th><th>Tipo</th><th>Descrição</th><th>TAG / local</th><th>Concl. desejada</th><th class="num">Atraso</th><th class="num">Prior.</th><th>Ordem</th><th>Status</th></tr></thead><tbody>
+  ${notes.map(n => { const late = n.cd && n.cd < P.refDate; return `<tr class="${late ? 'late' : ''}"><td><b>${esc(n.n)}</b></td><td>${esc(n.t)}</td><td>${esc(n.d)}<div class="muted" style="font-size:11px">${esc(n.le)}</div></td>
+    <td>${esc(n.tag || '-')}<div class="muted" style="font-size:11px">${esc(n.loc)}</div></td>
+    <td class="${late ? 'st-late' : ''}">${fmtD(n.cd)}</td><td class="num ${late ? 'st-late' : 'dim'}">${late ? daysBetween(n.cd, P.refDate) + ' d' : '-'}</td>
+    <td class="num">${esc(n.pr)}</td><td>${esc(n.o || '-')}</td><td class="muted" style="font-size:12px">${esc(n.st)}</td></tr>`; }).join('')}
+  </tbody></table>`;
+}
+function sapTab(e, r) {
+  if (!e.sap.length) return '<div class="empty">Nenhuma nota SAP aberta nos locais de instalação deste equipamento.</div>';
+  const notes = UI.sapLate ? r.late : e.sap;
+  return `<div class="toolbar" style="margin-bottom:8px"><span class="note" style="margin:0;margin-right:auto">Atrasada: conclusão desejada anterior a ${fmtD(P.refDate)}. Notas encerradas (MSEN) não entram.</span>
+    <label style="font-size:13px;display:flex;gap:6px;align-items:center"><input type="checkbox" id="sapLate" ${UI.sapLate ? 'checked' : ''}> Só atrasadas (${r.late.length})</label></div>
+    <div class="tbl-wrap" style="max-height:520px">${notes.length ? sapTable(notes) : '<div class="empty">Nenhuma nota atrasada.</div>'}</div>`;
+}
+
+function caseTab(r) {
+  if (!r.cs.length) return '<div class="empty">Nenhum case registrado para este equipamento.</div>';
+  const stc = s => /atrasad/i.test(s) ? 'st-late' : /execut/i.test(s) ? 'st-ok' : '';
+  return `<p class="note">A primeira coluna mostra a criticidade do case (1 a 4 barras), usada como multiplicador da penalidade.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>S.</th><th>ID</th><th>Criado</th><th>Equipamento</th><th>Título</th><th>Tipo</th><th>Status da ação</th><th class="num">Alarmes 30d</th><th>Última edição</th></tr></thead><tbody>
+  ${r.cs.map(c => `<tr><td>${sevBars(c.sev)}</td><td><b>${esc(c.id)}</b></td><td>${fmtD(c.dt)}</td><td>${esc(c.eq)}</td><td>${esc(c.title)}</td><td>${esc(c.tipo)}</td>
+    <td class="${stc(c.st)}">${esc(c.st)}</td><td class="num">${c.al}</td><td>${fmtD(c.ed)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+/* =====================================================================
+   Eventos
+   ===================================================================== */
+function bind(rt) {
+  const q = s => document.querySelector(s);
+  const ss = q('#sysSort'); if (ss) ss.onchange = () => { UI.sysSort = ss.value; render(); };
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { UI.sysView = b.dataset.view; render(); });
+  document.querySelectorAll('tr[data-href]').forEach(tr => tr.onclick = () => { location.hash = tr.dataset.href; });
+  document.querySelectorAll('[data-eq]').forEach(b => b.onclick = () => {
+    location.hash = `#/sistema/${rt.sys}/${b.dataset.eq}`;
+    if (window.innerWidth <= 1000) setTimeout(() => document.getElementById('detail').scrollIntoView({ behavior: 'smooth' }), 30);
+  });
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { UI.tab = b.dataset.tab; render(); });
+  const sl = q('#sapLate'); if (sl) sl.onchange = () => { UI.sapLate = sl.checked; render(); };
+  const ef = q('#eqFilter');
+  if (ef) ef.oninput = () => { UI.eqFilter = ef.value; const pos = ef.selectionStart; render(); const n = document.getElementById('eqFilter'); n.focus(); n.setSelectionRange(pos, pos); };
+}
+
+/* =====================================================================
+   Painel Metodologia
+   ===================================================================== */
+function methodHTML() {
+  const field = (k, label, step = 1) => `<label for="p_${k}">${label}</label><input id="p_${k}" data-p="${k}" type="number" step="${step}" min="0" value="${P[k]}">`;
+  const grp = (src, t) => `<div class="grp"><i style="background:${SRC[src].color}"></i>${t}</div>`;
+  const c = D.coverage;
+  return `
+  <h2 id="mTitle">Metodologia e pesos</h2>
+  <p class="muted" style="margin-top:0">Ajuste os pontos abaixo e a página recalcula na hora. Os valores ficam salvos neste navegador.</p>
+  <div class="formula">Equipamento = 100 − Σ penalidades (mínimo 0)
+Sistema     = Σ(peso_eq × nota_eq) ÷ Σ peso_eq
+FPSO        = Σ(peso_sis × nota_sis) ÷ Σ peso_sis</div>
+  <h3>Penalidades por equipamento</h3>
+  <div class="form">
+    <label for="p_refDate">Data de referência</label><input id="p_refDate" data-p="refDate" type="date" value="${P.refDate}">
+    ${grp('eng', 'Relatório do engenheiro (pptx)')}
+    ${field('engI', 'Indisponível')}${field('engR', 'Com restrição')}${field('engPend', 'Disponível com pendência registrada')}
+    ${grp('oil', 'Análise de óleo')}
+    ${field('oilCrit', 'Laudo mais recente Crítico (qualquer compartimento)')}${field('oilMonths', 'Validade do laudo (meses)')}
+    ${grp('vib', 'Vibração (coluna ' + esc(D.vibMeta.col_cur) + ')')}
+    ${field('vibAlarm', 'Alarme ou Crítico')}${field('vibAlert', 'Alerta')}${field('vibMaint', 'Manutenção / fora da base')}
+    ${grp('sap', 'Notas SAP com conclusão desejada vencida')}
+    ${field('sap1', '1 nota atrasada')}${field('sapN', '2 ou mais notas atrasadas')}
+    ${grp('case', 'Cases atrasados')}
+    ${field('case1', '1 case atrasado')}${field('caseN', '2 ou mais cases atrasados')}
+    ${field('sev1', 'Multiplicador criticidade baixa (1 barra)', 0.05)}${field('sev2', 'Multiplicador criticidade média (2 barras)', 0.05)}
+    ${field('sev3', 'Multiplicador criticidade alta (3 barras)', 0.05)}${field('sev4', 'Multiplicador criticidade crítica (4 barras)', 0.05)}
+  </div>
+  <p style="margin-top:14px"><button class="btn" id="btnReset" type="button">Restaurar valores padrão</button></p>
+  <h3>Como cada fonte entra</h3>
+  <ul>
+    <li><b>Óleo:</b> para cada compartimento (série + compartimento) vale o laudo mais recente já analisado. Amostras com saúde "-" estão em análise e não contam. Basta um compartimento crítico para aplicar a penalidade uma vez.</li>
+    <li><b>Vibração:</b> pior status da coluna ${esc(D.vibMeta.col_cur)} entre os pontos do equipamento (bomba, motor, caixa, turbina). "Alerta" foi incluído com meia penalidade por indicar defeito já identificado (ex.: rolamento, desbalanceamento).</li>
+    <li><b>Notas SAP:</b> notas abertas cujo local de instalação pertence ao equipamento (vale o prefixo mais longo). Atrasada quando a conclusão desejada é anterior à data de referência.</li>
+    <li><b>Cases:</b> status da ação "Atrasado". A penalidade é multiplicada pela maior criticidade entre os cases atrasados.</li>
+    <li><b>Relatório do engenheiro:</b> status Disponível, Com restrição ou Indisponível de cada item avaliado na apresentação. Itens disponíveis com pendência anotada (L1 em atraso, óleo degradado, válvulas sem avaliação) perdem poucos pontos.</li>
+  </ul>
+  <h3>Peso dos sistemas no FPSO</h3>
+  <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="num">Peso</th><th>Motivo</th></tr></thead><tbody>
+  ${D.systems.slice().sort((a, b) => b.w - a.w).map(s => `<tr><td>${esc(s.name)}</td><td class="num"><b>${s.w}</b></td><td class="muted" style="font-size:12px">${esc(s.why)}</td></tr>`).join('')}
+  </tbody></table></div>
+  <h3>Peso dos equipamentos no sistema</h3>
+  <p>Escala de 1 a 5 definida por função e redundância: 5 para itens sem os quais a planta para ou que são elementos críticos de segurança (turbogeradores, compressores principais, bombas de incêndio, gerador de emergência, separadores, HPU submarina, PAGA); 4 para equipamentos de produção com redundância parcial (injeção, captação, resfriamento, transferência de óleo, ar comprimido, UPS); 3 e 2 para itens de apoio com reserva instalada; 1 não foi usado.</p>
+  <h3>Cobertura dos dados</h3>
+  <ul>
+    <li>Vibração: ${c.vibMapped} de ${c.vibRows} linhas associadas a equipamentos.</li>
+    <li>Óleo: ${c.oilMapped} de ${c.oilSamples} amostras associadas.</li>
+    <li>SAP: ${c.sapMapped} notas abertas ligadas a equipamentos, ${c.sapSystem} só ao sistema, ${c.sapOpen} abertas no total (${D.sapMeta.encerradas} encerradas desconsideradas).</li>
+  </ul>
+  <details><summary>Tags de vibração sem equipamento cadastrado (${c.vibUnmapped.length})</summary><p class="muted" style="font-size:12px">${esc(c.vibUnmapped.join(', '))}</p></details>
+  <details style="margin-top:6px"><summary>Séries de óleo sem equipamento cadastrado (${c.oilUnmapped.length})</summary><p class="muted" style="font-size:12px">${esc(c.oilUnmapped.join(', '))}</p></details>`;
+}
+function openMethod() {
+  document.getElementById('method').innerHTML = methodHTML();
+  document.getElementById('drawerRoot').classList.add('open');
+  document.querySelectorAll('[data-p]').forEach(inp => inp.oninput = () => {
+    const k = inp.dataset.p;
+    if (k === 'refDate') { if (!inp.value) return; P.refDate = inp.value; }
+    else { const v = parseFloat(inp.value); if (isNaN(v) || v < 0) return; P[k] = v; }
+    saveP(); computeAll(); render();
+  });
+  document.getElementById('btnReset').onclick = () => { P = Object.assign({}, DEFAULTS); saveP(); computeAll(); render(); openMethod(); };
+  document.getElementById('btnClose').focus();
+}
+const closeMethod = () => document.getElementById('drawerRoot').classList.remove('open');
+document.getElementById('btnMethod').onclick = openMethod;
+document.getElementById('btnClose').onclick = closeMethod;
+document.getElementById('scrim').onclick = closeMethod;
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape') closeMethod(); });
+
+window.addEventListener('hashchange', render);
+computeAll();
+render();
+</script>
+</body>
+</html>
