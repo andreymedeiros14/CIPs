@@ -11,7 +11,7 @@
   --text:#f1f1f1;--muted:#a0a0a0;--dim:#6e6e6e;--accent:#7f96ff;
   --ok:#1fb33a;--ok-bar:#1e7a25;--bad-bar:#a02a2a;
   --s-good:#22c55e;--s-ok:#e5c100;--s-warn:#f59024;--s-bad:#ef4444;
-  --c-eng:#a78bfa;--c-oil:#f5b13d;--c-vib:#38bdf8;--c-sap:#f472b6;--c-case:#fb7a5a;
+  --c-eng:#a78bfa;--c-oil:#f5b13d;--c-vib:#38bdf8;--c-sap:#f472b6;--c-case:#fb7a5a;--c-alm:#34d399;
   --radius:6px;
 }
 *{box-sizing:border-box}
@@ -138,7 +138,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:var(--card2)}
 .pen .sw{width:10px;height:10px;border-radius:2px;margin-top:4px}
 .pen .pt{font-weight:700;color:#fca5a5;white-space:nowrap}
 .pen.zero .pt{color:var(--muted);font-weight:400}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
 .tile{background:var(--card);border-radius:var(--radius);padding:12px 14px;cursor:pointer;border:1px solid transparent;text-align:left}
 .tile:hover{background:var(--card2)}
 .tile.on{border-color:var(--accent)}
@@ -168,9 +168,10 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px}
 .drawer h3{font-size:14px;margin:22px 0 8px}
 .drawer p,.drawer li{font-size:13px;color:#cfcfcf}
 .drawer .x{position:absolute;right:14px;top:14px;background:transparent;border:0;color:var(--muted);cursor:pointer;font-size:22px;line-height:1}
-.form{display:grid;grid-template-columns:1fr 92px;gap:8px 12px;align-items:center}
+.form{display:grid;grid-template-columns:1fr 70px;gap:8px 12px;align-items:center}
 .form label{font-size:13px;color:#d4d4d4}
 .form input{width:100%}
+.form b.num{font-weight:700}
 .form .grp{grid-column:1/-1;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-top:10px;display:flex;align-items:center;gap:6px}
 .form .grp i{width:8px;height:8px;border-radius:2px;display:block}
 .formula{background:#101010;border:1px solid var(--line2);border-radius:6px;padding:10px 12px;font-family:ui-monospace,Consolas,monospace;font-size:12px;color:#e5e5e5;white-space:pre-wrap}
@@ -179,6 +180,7 @@ details summary{cursor:pointer;color:var(--accent);font-size:13px}
 .legend i{width:10px;height:10px;border-radius:50%;display:block}
 .foot{margin-top:28px;color:var(--dim);font-size:12px}
 @media (max-width:1250px){.home{grid-template-columns:1fr 1fr}.home>.fpso{grid-column:1/-1;max-width:420px}}
+@media (max-width:1300px){.tiles{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:1000px){.md{grid-template-columns:1fr}.eqlist{position:static;max-height:340px}.tiles{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:760px){.wrap{padding:0 16px 40px}.top{padding:12px 16px;position:static}.eqhead .ring{margin:0 auto}.home{grid-template-columns:1fr}.band{padding:16px}.kpis{margin-left:0}.kpi{min-width:0;flex:1 1 40%}input[type=search]{min-width:0;width:100%}.rank a{grid-template-columns:1fr 46px 70px}}
 </style>
@@ -211,25 +213,18 @@ const D = /*__DATA__*/null;
 /* =====================================================================
    Parâmetros do Health Score (editáveis no painel Metodologia)
    ===================================================================== */
-const DEFAULTS = {
+// Parâmetros fixos (calibração definida pelo usuário). Não editáveis na página.
+const P = Object.freeze({
   refDate: D.refDate,
+  engI: 30, engR: 10, engPend: 5,
   oilCrit: 20, oilMonths: 24,
   vibAlarm: 20, vibAlert: 10, vibMaint: 0,
-  sap1: 5, sapN: 10,
-  case1: 5, caseN: 10, sev1: 0.5, sev2: 0.75, sev3: 1, sev4: 1.5,
-  engI: 40, engR: 20, engPend: 5,
-  sysW: Object.fromEntries(D.systems.map(s => [s.id, s.w])),
-};
-const STORE_KEY = 'hs-forte-params-v1';
-const freshP = () => Object.assign({}, DEFAULTS, { sysW: Object.assign({}, DEFAULTS.sysW) });
-let P = freshP();
-try {
-  const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-  if (s) { const { sysW, ...rest } = s; Object.assign(P, rest); if (sysW) Object.assign(P.sysW, sysW); }
-} catch (e) {}
-// peso do sistema no FPSO (editável no painel Metodologia)
-const sw = s => P.sysW[s.id] ?? s.w;
-const saveP = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(P)); } catch (e) {} };
+  sap1: 10, sapN: 15,
+  case1: 10, caseN: 15, sev1: 1, sev2: 2, sev3: 3, sev4: 4,
+  // alarmes USEFUL: % do tempo em alarme na janela (união dos intervalos)
+  almDays: 90, almBands: [[50, 15], [25, 10], [10, 5]],  // abaixo de 10% do tempo não penaliza
+});
+const sw = s => s.w;
 
 const UI = { sysView: 'grid', sysSort: 'score', tab: 'oil', sapLate: false, eqFilter: '' };
 
@@ -239,7 +234,9 @@ const SRC = {
   vib: { name: 'Vibração', color: 'var(--c-vib)' },
   sap: { name: 'Notas SAP', color: 'var(--c-sap)' },
   case: { name: 'Cases', color: 'var(--c-case)' },
+  alm: { name: 'Alarmes', color: 'var(--c-alm)' },
 };
+const ALM_SEV = { 1: 'Média', 2: 'Alta', 3: 'Muito Alta' };
 const OIL_TXT = { N: 'Normal', M: 'Monitorar', C: 'Crítico', P: 'Em análise' };
 const OIL_COL = { N: '#22c55e', M: '#e5c100', C: '#ef4444', P: '#7f96ff' };
 const SEV_TXT = { 1: 'Baixa', 2: 'Média', 3: 'Alta', 4: 'Crítica' };
@@ -305,7 +302,7 @@ const VIB_CLS = s => ({ 4: 'p-C', 3: 'p-C', 2: 'p-A', 1: 'p-X', 0: 'p-N' }[VIB_R
 
 function oilGroups(e) {
   const g = {};
-  for (const o of e.oil) (g[o.s + '|' + o.c] ||= []).push(o);
+  for (const o of e.oil) (g[o.s + '|' + o.c + '|' + o.f] ||= []).push(o);
   const limit = addMonths(P.refDate, -P.oilMonths);
   return Object.values(g).map(arr => {
     arr.sort((a, b) => (a.d || '').localeCompare(b.d || ''));
@@ -315,6 +312,31 @@ function oilGroups(e) {
     const inWin = last && last.d >= limit;
     return { s: arr[0].s, c: arr[0].c, f: arr[0].f, fr: arr[0].fr, all: arr, last, pend, inWin };
   }).sort((a, b) => ((b.last && b.last.d) || '').localeCompare((a.last && a.last.d) || ''));
+}
+
+// Alarmes USEFUL: união dos intervalos dentro da janela, para não contar duas vezes alarmes sobrepostos.
+const tms = t => new Date(t.replace(' ', 'T')).getTime();
+function alarmStats(e) {
+  const end = tms(P.refDate + ' 23:59'), start = end - P.almDays * 86400000, d30 = end - 30 * 86400000;
+  const iv = [], byName = {};
+  let n = 0, n30 = 0, maxSev = 0, last = null;
+  for (const a of e.alm) {
+    const s0 = tms(a.s), e0 = a.e ? tms(a.e) : end;
+    if (e0 < start || s0 > end) continue;
+    const s1 = Math.max(s0, start), e1 = Math.min(e0, end);
+    iv.push([s1, e1]); n++; if (s0 >= d30) n30++;
+    maxSev = Math.max(maxSev, a.v); if (!last || a.s > last) last = a.s;
+    const b = (byName[a.n] ||= { n: a.n, c: 0, iv: [], sev: 0, last: '', open: 0 });
+    b.c++; b.iv.push([s1, e1]); b.sev = Math.max(b.sev, a.v); if (a.s > b.last) b.last = a.s; if (!a.e) b.open++;
+  }
+  const union = arr => { arr.sort((x, y) => x[0] - y[0]); let t = 0, cs = null, ce = null;
+    for (const [a, b] of arr) { if (cs === null) { cs = a; ce = b; } else if (a <= ce) ce = Math.max(ce, b); else { t += ce - cs; cs = a; ce = b; } }
+    if (cs !== null) t += ce - cs; return t / 3600000; };
+  const hours = union(iv);
+  const groups = Object.values(byName).map(b => ({ ...b, h: union(b.iv) })).sort((a, b) => b.h - a.h);
+  const pct = 100 * hours / (P.almDays * 24);
+  const open = e.alm.filter(a => !a.e).length;
+  return { n, n30, hours, pct, maxSev, last, groups, open };
 }
 
 function scoreEquipment(e) {
@@ -327,9 +349,9 @@ function scoreEquipment(e) {
     else if (e.eng.st === 'R') add('eng', P.engR, 'Com restrição' + obs);
     else if (e.eng.pend) add('eng', P.engPend, 'Disponível com pendência' + obs);
   }
-  // 2. óleo: laudo mais recente de cada compartimento
+  // 2. óleo lubrificante: laudo mais recente de cada compartimento (diesel e arrefecimento só informativos)
   const og = oilGroups(e);
-  const crit = og.filter(g => g.last && g.inWin && g.last.st === 'C');
+  const crit = og.filter(g => g.f === 'Óleo' && g.last && g.inWin && g.last.st === 'C');
   if (crit.length) add('oil', P.oilCrit, `Laudo mais recente crítico em ${crit.length} compartimento(s): ` + crit.map(g => `${g.c} (${g.s}, ${fmtD(g.last.d)})`).join('; '));
   // 3. vibração Ago/26
   let worst = -1, worstRows = [];
@@ -351,8 +373,14 @@ function scoreEquipment(e) {
     const base = lateC.length === 1 ? P.case1 : P.caseN;
     add('case', base * mult, `${lateC.length} case(s) atrasado(s) (${lateC.map(c => c.id).join(', ')}), criticidade ${SEV_TXT[maxSev]} (x${String(mult).replace('.', ',')})`);
   }
+  // 6. alarmes USEFUL: % do tempo em alarme na janela
+  const al = alarmStats(e);
+  if (al.hours > 0) {
+    const band = P.almBands.find(([lim]) => al.pct >= lim);
+    if (band) add('alm', band[1], `${fmtPts(al.pct)}% do tempo em alarme nos últimos ${P.almDays} dias (${fmtPts(al.hours)} h, ${al.n} alarmes USEFUL, maior severidade ${ALM_SEV[al.maxSev]})`);
+  }
   const total = pens.reduce((s, p) => s + p.pts, 0);
-  return {
+  return { al,
     score: Math.max(0, 100 - total), pens: pens.filter(p => p.pts > 0), og, late, cs, lateC,
     vibWorst: worst, oilCrit: crit.length,
   };
@@ -371,7 +399,7 @@ function computeAll() {
     const notes = D.sysNotes[s.id] || [];
     sys[s.id] = { score, pend, list, worst, notes, notesLate: notes.filter(n => n.cd && n.cd < P.refDate).length };
   }
-  const W = D.systems.reduce((a, s) => a + sw(s), 0);
+  const W = D.systems.reduce((a, s) => a + sw(s), 0);  // sistemas com peso 0 ficam fora do global
   const global = W ? D.systems.reduce((a, s) => a + sw(s) * sys[s.id].score, 0) / W : 100;
   const all = D.equipment.map(e => eq[e.id]);
   const kp = {
@@ -384,6 +412,7 @@ function computeAll() {
     sap: all.reduce((a, x) => a + x.late.length, 0),
     sapEq: all.filter(x => x.late.length).length,
     cases: D.cases.filter(c => /atrasad/i.test(c.st)).length,
+    alm: all.filter(x => x.al.pct >= 25).length,
     pend: all.reduce((a, x) => a + x.pens.length, 0),
   };
   R = { eq, sys, global, kp };
@@ -449,7 +478,7 @@ function viewHome() {
   <section class="band">
     ${ring(R.global, 84, 4)}
     <div class="meta"><h2>FPSO Forte</h2>
-      <p>Health Score global calculado pela média ponderada dos ${k.sys} sistemas, que por sua vez é a média ponderada dos ${k.eq} equipamentos monitorados. Cada equipamento parte de 100% e perde pontos por laudo de óleo crítico, vibração em alarme, notas SAP e cases atrasados e pela avaliação do engenheiro de manutenção.</p></div>
+      <p>Health Score global calculado pela média ponderada dos ${D.systems.filter(s => s.w > 0).length} sistemas com peso no FPSO, que por sua vez é a média ponderada dos ${k.eq} equipamentos monitorados. Cada equipamento parte de 100% e perde pontos por laudo de óleo crítico, vibração em alarme, tempo em alarme (USEFUL), notas SAP e cases atrasados e pela avaliação do engenheiro de manutenção.</p></div>
     <div class="kpis">
       <div class="kpi bad"><div class="k">Indisponíveis</div><div class="n">${k.ind}</div></div>
       <div class="kpi warn"><div class="k">Com restrição</div><div class="n">${k.res}</div></div>
@@ -464,13 +493,14 @@ function viewHome() {
         ${mini('Sistemas', k.sys)}${mini('Equipamentos', k.eq)}${mini('Indisponíveis', k.ind, k.ind ? 'bad' : '')}
         ${mini('Com restrição', k.res, k.res ? 'warn' : '')}${mini('Óleo crítico', k.oil, k.oil ? 'bad' : '')}${mini('Vibração em alarme', k.vib, k.vib ? 'bad' : '')}
         ${mini('Vibração em alerta', k.vibAl, k.vibAl ? 'warn' : '')}${mini('Notas SAP atrasadas', k.sap, k.sap ? 'warn' : '')}${mini('Cases atrasados', k.cases, k.cases ? 'warn' : '')}
+        ${mini('Em alarme ≥ 25% do tempo', k.alm, k.alm ? 'bad' : '')}
       </div>
       <div class="ft ${k.pend ? 'red' : 'green'}">${k.pend ? bell : bellOff}${k.pend ? k.pend + ' pendências' : 'Sem pendências'}</div>
     </a>
     <div class="panel">
       <h3>Health Score por sistema <span class="sub">peso no global</span></h3>
       <div class="rank">${sysRank.map(s => { const v = R.sys[s.id].score; return `
-        <a href="#/sistema/${s.id}"><span class="nm">${esc(s.name)}<small>Peso ${sw(s)} · ${R.sys[s.id].list.length} equipamentos</small></span>
+        <a href="#/sistema/${s.id}"><span class="nm">${esc(s.name)}<small>Peso ${fmtPts(sw(s))} · ${R.sys[s.id].list.length} equipamentos</small></span>
         <span class="pct" style="color:${scoreColor(v)}">${r0(v)}%</span><span class="bar"><i style="width:${v}%;background:${scoreColor(v)}"></i></span></a>`; }).join('')}</div>
     </div>
     <div class="panel">
@@ -515,7 +545,7 @@ function viewSystems() {
   </div>`;
   if (UI.sysView === 'list') {
     return head + `<div class="panel tbl-wrap"><table><thead><tr><th>Sistema</th><th class="num">Peso</th><th class="num">Equip.</th><th>Health Score</th><th class="num">Pendências</th><th>Pior equipamento</th></tr></thead><tbody>
-    ${list.map(s => { const x = R.sys[s.id]; return `<tr class="click" data-href="#/sistema/${s.id}"><td><b>${esc(s.name)}</b></td><td class="num">${sw(s)}</td><td class="num">${x.list.length}</td>
+    ${list.map(s => { const x = R.sys[s.id]; return `<tr class="click" data-href="#/sistema/${s.id}"><td><b>${esc(s.name)}</b></td><td class="num">${fmtPts(sw(s))}</td><td class="num">${x.list.length}</td>
       <td><div style="display:flex;align-items:center;gap:10px"><b style="color:${scoreColor(x.score)};width:42px">${r0(x.score)}%</b><span class="bar" style="width:140px"><i style="width:${x.score}%;background:${scoreColor(x.score)}"></i></span></div></td>
       <td class="num">${x.pend}</td><td>${x.worst ? esc(x.worst.name) + ` <span class="muted">(${r0(R.eq[x.worst.id].score)}%)</span>` : '-'}</td></tr>`; }).join('')}
     </tbody></table></div>` + footer();
@@ -523,7 +553,7 @@ function viewSystems() {
   return head + `<div class="grid">${list.map((s, i) => { const x = R.sys[s.id]; const bg = THUMB_BG[D.systems.indexOf(s) % THUMB_BG.length];
     return `<a class="card" href="#/sistema/${s.id}">
       <div class="hd">${esc(s.name)}</div>
-      <div class="bd">${ring(x.score, 80, 4)}<div class="thumb" style="background:linear-gradient(135deg,${bg})">${sysIcon(s.icon)}<span class="tagl">${x.list.length} equip.</span><span class="tag">peso ${sw(s)}</span></div></div>
+      <div class="bd">${ring(x.score, 80, 4)}<div class="thumb" style="background:linear-gradient(135deg,${bg})">${sysIcon(s.icon)}<span class="tagl">${x.list.length} equip.</span><span class="tag">peso ${fmtPts(sw(s))}</span></div></div>
       <div class="ft ${x.pend ? 'red' : 'green'}">${x.pend ? bell : bellOff}${x.pend ? x.pend + (x.pend > 1 ? ' pendências' : ' pendência') : 'Sem pendências'}</div>
     </a>`; }).join('')}</div>` + footer();
 }
@@ -543,7 +573,7 @@ function viewSystem(sid, eqid) {
     ${ring(x.score, 96, 5)}
     <div style="flex:1;min-width:240px"><h2>${esc(s.name)}</h2><p>${esc(s.why)}</p>
       <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px">
-        <span class="chip">Peso no FPSO <b>${sw(s)}/5</b></span>
+        <span class="chip">Peso no FPSO <b>${fmtPts(sw(s))}</b></span>
         <span class="chip">Equipamentos <b>${list.length}</b></span>
         <span class="chip">Pendências <b>${x.pend}</b></span>
         ${x.notes.length ? `<span class="chip" title="Notas abertas em locais do sistema sem equipamento cadastrado. Não entram na nota.">Notas SAP só no sistema <b>${x.notes.length}</b>${x.notesLate ? ` · <b style="color:var(--s-warn)">${x.notesLate} atrasadas</b>` : ''}</span>` : ''}
@@ -577,12 +607,15 @@ function viewEquipment(e) {
   const tot = r.pens.reduce((a, p) => a + p.pts, 0);
   const openCases = r.cs.filter(c => !/execut/i.test(c.st));
   const pendOil = r.og.reduce((a, g) => a + g.pend.length, 0);
-  const lastOil = r.og.filter(g => g.last && g.inWin);
+  const lastOil = r.og.filter(g => g.f === 'Óleo' && g.last && g.inWin);
   const worstOil = lastOil.some(g => g.last.st === 'C') ? 'C' : lastOil.some(g => g.last.st === 'M') ? 'M' : lastOil.length ? 'N' : null;
   const vibTxt = r.vibWorst >= 0 ? ['Manutenção', 'Manutenção', 'Alerta', 'Alarme', 'Crítico'][Math.max(1, r.vibWorst)] : null;
   const vibLbl = r.vibWorst === 0 ? 'Normal' : vibTxt;
   const tile = (key, label, n, sub, color) => `<button type="button" class="tile ${UI.tab === key ? 'on' : ''}" data-tab="${key}"><div class="k"><i style="background:${color}"></i>${label}</div><div class="n">${n}</div><div class="s">${sub}</div></button>`;
-  const tabs = [['oil', 'Análise de Óleo', r.og.length], ['vib', 'Vibração', e.vib.length], ['sap', 'Notas SAP', e.sap.length], ['case', 'Cases', r.cs.length]];
+  const tabs = [['oil', 'Análise de Óleo', r.og.length], ['vib', 'Vibração', e.vib.length], ['alm', 'Alarmes', r.al.n], ['sap', 'Notas SAP', e.sap.length], ['case', 'Cases', r.cs.length]];
+  const lub = r.og.filter(g => g.f === 'Óleo' && g.last).map(g => g.last.d).sort();
+  const lastLub = lub[lub.length - 1];
+  const lubAge = lastLub ? Math.floor(daysBetween(lastLub, P.refDate) / 30.4) : null;
   return `
   <div class="panel eqhead">
     ${ring(r.score, 128, 7)}
@@ -615,25 +648,26 @@ function viewEquipment(e) {
     </div>
   </div>
   <div class="tiles">
-    ${tile('oil', 'Análise de óleo', worstOil ? `<span class="pill p-${worstOil}">${OIL_TXT[worstOil]}</span>` : '<span class="muted" style="font-size:14px">Sem laudo válido</span>', `${r.og.length} compartimento(s)${pendOil ? ` · ${pendOil} em análise` : ''}`, 'var(--c-oil)')}
+    ${tile('oil', 'Análise de óleo', worstOil ? `<span class="pill p-${worstOil}">${OIL_TXT[worstOil]}</span>` : '<span class="muted" style="font-size:14px">Sem laudo válido</span>', `${r.og.length} compartimento(s)${pendOil ? ` · ${pendOil} em análise` : ''}${lastLub ? `<br><span class="${lubAge >= 6 ? 'st-late' : ''}">último laudo ${fmtD(lastLub)}${lubAge >= 6 ? ` (${lubAge} meses)` : ''}</span>` : ''}`, 'var(--c-oil)')}
     ${tile('vib', 'Vibração ' + esc(D.vibMeta.col_cur), vibLbl ? `<span class="pill ${VIB_CLS(vibLbl)}">${vibLbl}</span>` : '<span class="muted" style="font-size:14px">Sem medição</span>', `${e.vib.length} ponto(s) na rota`, 'var(--c-vib)')}
+    ${tile('alm', 'Alarmes USEFUL', r.al.n ? `${fmtPts(r.al.pct)}<span class="muted" style="font-size:13px;font-weight:400">% do tempo</span>` : '<span class="muted" style="font-size:14px">Sem alarmes</span>', r.al.n ? `${r.al.n} alarmes · ${fmtPts(r.al.hours)} h em ${P.almDays} dias` : `janela de ${P.almDays} dias`, 'var(--c-alm)')}
     ${tile('sap', 'Notas SAP', `${e.sap.length} <span class="muted" style="font-size:13px;font-weight:400">abertas</span>`, r.late.length ? `<span class="st-late">${r.late.length} atrasada(s)</span>` : 'Nenhuma atrasada', 'var(--c-sap)')}
     ${tile('case', 'Cases', `${openCases.length} <span class="muted" style="font-size:13px;font-weight:400">em aberto</span>`, r.lateC.length ? `<span class="st-late">${r.lateC.length} atrasado(s)</span>` : `${r.cs.length} no total`, 'var(--c-case)')}
   </div>
   <div class="panel">
     <div class="tabs" role="tablist">${tabs.map(([k, l, c]) => `<button type="button" role="tab" aria-selected="${UI.tab === k}" class="${UI.tab === k ? 'on' : ''}" data-tab="${k}">${l}<span class="c">${c}</span></button>`).join('')}</div>
-    ${UI.tab === 'oil' ? oilTab(e, r) : UI.tab === 'vib' ? vibTab(e) : UI.tab === 'sap' ? sapTab(e, r) : caseTab(r)}
+    ${UI.tab === 'oil' ? oilTab(e, r) : UI.tab === 'vib' ? vibTab(e) : UI.tab === 'alm' ? almTab(e, r) : UI.tab === 'sap' ? sapTab(e, r) : caseTab(r)}
   </div>`;
 }
 
 function oilTab(e, r) {
   if (!r.og.length) return '<div class="empty">Sem amostras de óleo associadas a este equipamento no relatório.</div>';
   const limit = addMonths(P.refDate, -P.oilMonths);
-  return `<p class="note">Status do laudo mais recente de cada compartimento. Laudos anteriores a ${fmtD(limit)} (janela de ${P.oilMonths} meses) aparecem esmaecidos e não penalizam. Bolinhas: histórico de coletas, da mais antiga para a mais recente. Contorno azul: amostra em análise.</p>
+  return `<p class="note">Status do laudo mais recente de cada compartimento. Só óleo lubrificante entra na nota; diesel e arrefecimento são informativos. Laudos anteriores a ${fmtD(limit)} (janela de ${P.oilMonths} meses) aparecem esmaecidos e não penalizam. Bolinhas: histórico de coletas, da mais antiga para a mais recente. Contorno azul: amostra em análise.</p>
   <div class="tbl-wrap"><table><thead><tr><th>Série</th><th>Compartimento</th><th>Fluido</th><th>Último laudo</th><th>Status</th><th>Histórico</th><th></th></tr></thead><tbody>
   ${r.og.map((g, i) => { const l = g.last; const p = l ? Object.entries(l.p || {}) : [];
     return `<tr style="${l && !g.inWin ? 'opacity:.55' : ''}">
-    <td><b>${esc(g.s)}</b><div class="muted" style="font-size:11px">${esc(g.fr)}</div></td><td>${esc(g.c)}</td><td>${esc(g.f)}</td>
+    <td><b>${esc(g.s)}</b><div class="muted" style="font-size:11px">${esc(g.fr)}</div></td><td>${esc(g.c)}</td><td>${esc(g.f)}${g.f !== 'Óleo' ? '<div class="dim" style="font-size:11px">informativo</div>' : ''}</td>
     <td>${l ? fmtD(l.d) : '-'}${g.pend.length ? `<div style="font-size:11px;color:#a5b4fc">coleta ${fmtD(g.pend[g.pend.length - 1].d)} em análise</div>` : ''}</td>
     <td>${l ? `<span class="pill p-${l.st}">${OIL_TXT[l.st]}</span>` : '<span class="pill p-P">Em análise</span>'}</td>
     <td><span class="hist">${g.all.slice(-10).map(o => `<i class="${o.st === 'P' ? 'p' : ''}" style="background:${OIL_COL[o.st]}" title="${fmtD(o.d)} · ${OIL_TXT[o.st]} · ${esc(o.n)}"></i>`).join('')}</span></td>
@@ -642,6 +676,22 @@ function oilTab(e, r) {
       <div class="muted" style="font-size:11px;margin-top:6px">Amostra ${esc(l.n)}${l.os ? ' · OS ' + esc(l.os) : ''}${l.ol ? ' · ' + esc(l.ol) : ''}</div>
       ${l.tx ? `<div class="interp">${esc(l.tx)}</div>` : ''}</details>` : ''}</td></tr>`; }).join('')}
   </tbody></table></div>`;
+}
+
+function almTab(e, r) {
+  const a = r.al;
+  if (!e.almAssets.length) return '<div class="empty">Equipamento sem ativo correspondente na lista de alarmes.</div>';
+  if (!a.n) return `<div class="empty">Nenhum alarme USEFUL nos últimos ${P.almDays} dias para ${esc(e.almAssets.join(', '))}.</div>`;
+  const recent = e.alm.slice().reverse().slice(0, 40);
+  const bar = (h) => `<span class="bar" style="width:120px;display:inline-block;vertical-align:middle"><i style="width:${Math.min(100, 100 * h / (P.almDays * 24))}%;background:var(--c-alm)"></i></span>`;
+  return `<p class="note">Só alarmes classificados como USEFUL. Ativos: ${esc(e.almAssets.join(', '))}. Tempo em alarme é a união dos intervalos na janela de ${P.almDays} dias até ${fmtD(P.refDate)}, sem contar duas vezes alarmes sobrepostos. Alarme sem data de fim conta como ativo.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Tipo de alarme</th><th class="num">Ocorrências</th><th>Tempo em alarme</th><th>Maior severidade</th><th>Último início</th></tr></thead><tbody>
+  ${a.groups.map(g => `<tr><td><b>${esc(g.n)}</b>${D.alarmNames[g.n] ? `<div class="muted" style="font-size:11px" title="${esc(D.alarmNames[g.n])}">${esc(D.alarmNames[g.n].length > 150 ? D.alarmNames[g.n].slice(0, 150) + '...' : D.alarmNames[g.n])}</div>` : ''}${g.open ? `<div class="st-late" style="font-size:11px">${g.open} ativo(s)</div>` : ''}</td>
+    <td class="num">${g.c}</td><td style="white-space:nowrap">${bar(g.h)} ${fmtPts(g.h)} h</td><td><span class="pill ${g.sev === 3 ? 'p-C' : g.sev === 2 ? 'p-A' : 'p-M'}">${ALM_SEV[g.sev]}</span></td><td>${fmtD(g.last.slice(0, 10))}</td></tr>`).join('')}
+  </tbody></table></div>
+  <details style="margin-top:12px"><summary>Últimos ${recent.length} alarmes</summary><div class="tbl-wrap" style="max-height:420px;margin-top:8px"><table><thead><tr><th>Ativo</th><th>Alarme</th><th>Início</th><th>Fim</th><th>Severidade</th><th class="num">Agregados</th></tr></thead><tbody>
+  ${recent.map(x => `<tr><td>${esc(x.a)}</td><td>${esc(x.n)}</td><td>${fmtD(x.s.slice(0, 10))} ${x.s.slice(11, 16)}</td><td>${x.e ? fmtD(x.e.slice(0, 10)) + ' ' + x.e.slice(11, 16) : '<span class="st-late">ativo</span>'}</td><td>${ALM_SEV[x.v]}</td><td class="num">${x.g}</td></tr>`).join('')}
+  </tbody></table></div></details>`;
 }
 
 function vibTab(e) {
@@ -704,72 +754,63 @@ function bind(rt) {
    Painel Metodologia
    ===================================================================== */
 function methodHTML() {
-  const field = (k, label, step = 1) => `<label for="p_${k}">${label}</label><input id="p_${k}" data-p="${k}" type="number" step="${step}" min="0" value="${P[k]}">`;
+  const row = (label, v) => `<label>${label}</label><b class="num">${v}</b>`;
   const grp = (src, t) => `<div class="grp"><i style="background:${SRC[src].color}"></i>${t}</div>`;
-  const c = D.coverage;
+  const c = D.coverage, am = D.alarmMeta;
+  const W = D.systems.reduce((a, s) => a + s.w, 0);
   return `
   <h2 id="mTitle">Metodologia e pesos</h2>
-  <p class="muted" style="margin-top:0">Ajuste os pontos abaixo e a página recalcula na hora. Os valores ficam salvos neste navegador.</p>
+  <p class="muted" style="margin-top:0">Pesos e penalidades fixos, calibrados para esta versão. Data de referência ${fmtD(P.refDate)}.</p>
   <div class="formula">Equipamento = 100 − Σ penalidades (mínimo 0)
 Sistema     = Σ(peso_eq × nota_eq) ÷ Σ peso_eq
 FPSO        = Σ(peso_sis × nota_sis) ÷ Σ peso_sis</div>
   <h3>Penalidades por equipamento</h3>
   <div class="form">
-    <label for="p_refDate">Data de referência</label><input id="p_refDate" data-p="refDate" type="date" value="${P.refDate}">
     ${grp('eng', 'Relatório do engenheiro (pptx)')}
-    ${field('engI', 'Indisponível')}${field('engR', 'Com restrição')}${field('engPend', 'Disponível com pendência registrada')}
-    ${grp('oil', 'Análise de óleo')}
-    ${field('oilCrit', 'Laudo mais recente Crítico (qualquer compartimento)')}${field('oilMonths', 'Validade do laudo (meses)')}
+    ${row('Indisponível', P.engI)}${row('Com restrição', P.engR)}${row('Disponível com pendência registrada', P.engPend)}
+    ${grp('oil', 'Análise de óleo lubrificante')}
+    ${row('Laudo mais recente Crítico (qualquer compartimento)', P.oilCrit)}${row('Validade do laudo (meses)', P.oilMonths)}
     ${grp('vib', 'Vibração (coluna ' + esc(D.vibMeta.col_cur) + ')')}
-    ${field('vibAlarm', 'Alarme ou Crítico')}${field('vibAlert', 'Alerta')}${field('vibMaint', 'Manutenção / fora da base')}
+    ${row('Alarme ou Crítico', P.vibAlarm)}${row('Alerta', P.vibAlert)}${row('Manutenção / fora da base', P.vibMaint)}
+    ${grp('alm', `Alarmes USEFUL (% do tempo em alarme, ${P.almDays} dias)`)}
+    ${P.almBands.map(([lim, pts], i) => row(i ? `De ${lim}% a ${P.almBands[i - 1][0]}%` : `${lim}% ou mais do tempo`, pts)).join('')}${row(`Abaixo de ${P.almBands[P.almBands.length - 1][0]}%`, 0)}
     ${grp('sap', 'Notas SAP com conclusão desejada vencida')}
-    ${field('sap1', '1 nota atrasada')}${field('sapN', '2 ou mais notas atrasadas')}
+    ${row('1 nota atrasada', P.sap1)}${row('2 ou mais notas atrasadas', P.sapN)}
     ${grp('case', 'Cases atrasados')}
-    ${field('case1', '1 case atrasado')}${field('caseN', '2 ou mais cases atrasados')}
-    ${field('sev1', 'Multiplicador criticidade baixa (1 barra)', 0.05)}${field('sev2', 'Multiplicador criticidade média (2 barras)', 0.05)}
-    ${field('sev3', 'Multiplicador criticidade alta (3 barras)', 0.05)}${field('sev4', 'Multiplicador criticidade crítica (4 barras)', 0.05)}
+    ${row('1 case atrasado', P.case1)}${row('2 ou mais cases atrasados', P.caseN)}
+    ${row('Multiplicador criticidade baixa (1 barra)', 'x' + P.sev1)}${row('Multiplicador criticidade média (2 barras)', 'x' + P.sev2)}
+    ${row('Multiplicador criticidade alta (3 barras)', 'x' + P.sev3)}${row('Multiplicador criticidade crítica (4 barras)', 'x' + P.sev4)}
   </div>
-  <p style="margin-top:14px"><button class="btn" id="btnReset" type="button">Restaurar valores padrão (penalidades e pesos)</button></p>
   <h3>Como cada fonte entra</h3>
   <ul>
-    <li><b>Óleo:</b> para cada compartimento (série + compartimento) vale o laudo mais recente já analisado. Amostras com saúde "-" estão em análise e não contam. Basta um compartimento crítico para aplicar a penalidade uma vez.</li>
-    <li><b>Vibração:</b> pior status da coluna ${esc(D.vibMeta.col_cur)} entre os pontos do equipamento (bomba, motor, caixa, turbina). "Alerta" foi incluído com meia penalidade por indicar defeito já identificado (ex.: rolamento, desbalanceamento).</li>
+    <li><b>Óleo:</b> para cada compartimento (série + compartimento) vale o laudo mais recente já analisado da aba Óleo Lubrificante. Amostras com saúde "-" estão em análise e não contam. Laudos de diesel e de líquido de arrefecimento aparecem no dashboard, mas não penalizam. Basta um compartimento crítico para aplicar a penalidade uma vez.</li>
+    <li><b>Vibração:</b> pior status da coluna ${esc(D.vibMeta.col_cur)} entre os pontos do equipamento (bomba, motor, caixa, turbina). "Alerta" tem meia penalidade por indicar defeito já identificado.</li>
+    <li><b>Alarmes:</b> só alarmes com classificação USEFUL (${am.useful} de ${am.total} na lista, de ${fmtD(am.first)} a ${fmtD(am.last)}). O critério é a duração, medida como % do tempo em que o equipamento ficou em alarme nos últimos ${P.almDays} dias. A quantidade de alarmes não foi usada porque distorce: o mesmo defeito gera centenas de registros curtos quando o sinal oscila no limite (o LP/IP do Trem B tem 794 registros), enquanto a caixa multiplicadora do Trem B tem só 28 registros e passou 53% do tempo em alarme. A soma simples das durações também foi descartada, porque alarmes sobrepostos contam em dobro (a turbina do TG-C somaria 22 mil horas em 90 dias). Por isso a duração é a união dos intervalos.</li>
     <li><b>Notas SAP:</b> notas abertas cujo local de instalação pertence ao equipamento (vale o prefixo mais longo). Atrasada quando a conclusão desejada é anterior à data de referência.</li>
     <li><b>Cases:</b> status da ação "Atrasado". A penalidade é multiplicada pela maior criticidade entre os cases atrasados.</li>
-    <li><b>Relatório do engenheiro:</b> status Disponível, Com restrição ou Indisponível de cada item avaliado na apresentação. Itens disponíveis com pendência anotada (L1 em atraso, óleo degradado, válvulas sem avaliação) perdem poucos pontos.</li>
+    <li><b>Relatório do engenheiro:</b> status Disponível, Com restrição ou Indisponível de cada item avaliado na apresentação. Itens disponíveis com pendência anotada perdem poucos pontos.</li>
   </ul>
   <h3>Peso dos sistemas no FPSO</h3>
-  <p class="muted" style="margin-top:0">Escala sugerida de 1 a 5. Peso 0 tira o sistema do cálculo global.</p>
-  <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th>Peso</th><th>Motivo</th></tr></thead><tbody>
-  ${D.systems.slice().sort((a, b) => b.w - a.w).map(s => `<tr><td><label for="w_${s.id}">${esc(s.name)}</label></td>
-    <td><input id="w_${s.id}" data-sw="${s.id}" type="number" min="0" step="1" value="${sw(s)}" style="width:64px">${sw(s) !== s.w ? `<div class="dim" style="font-size:11px">padrão ${s.w}</div>` : ''}</td>
-    <td class="muted" style="font-size:12px">${esc(s.why)}</td></tr>`).join('')}
+  <p class="muted" style="margin-top:0">Sistemas com peso 0 continuam visíveis, mas não entram no Health Score global.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Sistema</th><th class="num">Peso</th><th class="num">Participação</th><th>Motivo</th></tr></thead><tbody>
+  ${D.systems.slice().sort((a, b) => b.w - a.w).map(s => `<tr><td>${esc(s.name)}</td><td class="num"><b>${String(s.w).replace('.', ',')}</b></td><td class="num muted">${fmtPts(100 * s.w / W)}%</td><td class="muted" style="font-size:12px">${esc(s.why)}</td></tr>`).join('')}
   </tbody></table></div>
   <h3>Peso dos equipamentos no sistema</h3>
-  <p>Escala de 1 a 5 definida por função e redundância: 5 para itens sem os quais a planta para ou que são elementos críticos de segurança (turbogeradores, compressores principais, bombas de incêndio, gerador de emergência, separadores, HPU submarina, PAGA); 4 para equipamentos de produção com redundância parcial (injeção, captação, resfriamento, transferência de óleo, ar comprimido, UPS); 3 e 2 para itens de apoio com reserva instalada; 1 não foi usado.</p>
+  <p>Escala de 1 a 5 definida por função e redundância: 5 para itens sem os quais a planta para ou que são elementos críticos de segurança (turbogeradores, compressores principais, bombas de incêndio, gerador de emergência, separadores, HPU submarina, PAGA); 4 para equipamentos de produção com redundância parcial; 3 e 2 para itens de apoio com reserva instalada.</p>
   <h3>Cobertura dos dados</h3>
   <ul>
     <li>Vibração: ${c.vibMapped} de ${c.vibRows} linhas associadas a equipamentos.</li>
     <li>Óleo: ${c.oilMapped} de ${c.oilSamples} amostras associadas.</li>
+    <li>Alarmes USEFUL: ${c.almMapped} de ${c.almUseful} associados a equipamentos.</li>
     <li>SAP: ${c.sapMapped} notas abertas ligadas a equipamentos, ${c.sapSystem} só ao sistema, ${c.sapOpen} abertas no total (${D.sapMeta.encerradas} encerradas desconsideradas).</li>
   </ul>
-  <details><summary>Tags de vibração sem equipamento cadastrado (${c.vibUnmapped.length})</summary><p class="muted" style="font-size:12px">${esc(c.vibUnmapped.join(', '))}</p></details>
+  ${c.almUnmapped.length ? `<details><summary>Ativos de alarme sem equipamento cadastrado (${c.almUnmapped.length})</summary><p class="muted" style="font-size:12px">${esc(c.almUnmapped.join(', '))}</p></details>` : ''}
+  <details style="margin-top:6px"><summary>Tags de vibração sem equipamento cadastrado (${c.vibUnmapped.length})</summary><p class="muted" style="font-size:12px">${esc(c.vibUnmapped.join(', '))}</p></details>
   <details style="margin-top:6px"><summary>Séries de óleo sem equipamento cadastrado (${c.oilUnmapped.length})</summary><p class="muted" style="font-size:12px">${esc(c.oilUnmapped.join(', '))}</p></details>`;
 }
 function openMethod() {
   document.getElementById('method').innerHTML = methodHTML();
   document.getElementById('drawerRoot').classList.add('open');
-  document.querySelectorAll('[data-p]').forEach(inp => inp.oninput = () => {
-    const k = inp.dataset.p;
-    if (k === 'refDate') { if (!inp.value) return; P.refDate = inp.value; }
-    else { const v = parseFloat(inp.value); if (isNaN(v) || v < 0) return; P[k] = v; }
-    saveP(); computeAll(); render();
-  });
-  document.querySelectorAll('[data-sw]').forEach(inp => inp.oninput = () => {
-    const v = parseFloat(inp.value); if (isNaN(v) || v < 0) return;
-    P.sysW[inp.dataset.sw] = v; saveP(); computeAll(); render();
-  });
-  document.getElementById('btnReset').onclick = () => { P = freshP(); saveP(); computeAll(); render(); openMethod(); };
   document.getElementById('btnClose').focus();
 }
 const closeMethod = () => document.getElementById('drawerRoot').classList.remove('open');

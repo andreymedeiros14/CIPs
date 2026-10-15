@@ -6,6 +6,7 @@ Uso:
       --oleo Relatorio_Amostras_15_10_2026.xlsx \
       --vib "RDO SEMAPI - FPSO FORTE - VIB-AGO-26.xlsm" \
       --sap Base_notas_SAP.xlsx \
+      --alarmes alarms-list.csv \
       --data-ref 2026-10-15 \
       --saida FPSO_Forte_Health_Score.html
 
@@ -24,7 +25,7 @@ import openpyxl
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from config import CASES, EQUIPMENT, SAP_SYSTEM_CODES, SYSTEMS  # noqa: E402
+from config import ALARM_ASSETS, CASES, EQUIPMENT, SAP_SYSTEM_CODES, SYSTEMS  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
@@ -129,6 +130,31 @@ def load_sap(path):
     return notes, dict(total=total, encerradas=n_closed)
 
 
+# --------------------------------------------------------------------------- alarmes
+SEV_ALARM = {"Média": 1, "Alta": 2, "Muito Alta": 3}
+
+
+def load_alarms(path):
+    """Lê a lista de alarmes e mantém só os classificados como USEFUL."""
+    df = pd.read_csv(path, sep=";", encoding="utf-8-sig", index_col=False, dtype=str)
+    total = len(df)
+    df = df[df["Classification"].astype(str).str.strip().str.upper() == "USEFUL"]
+    names, rows = {}, []
+    for _, r in df.iterrows():
+        asset = re.sub(r"^FORTE-", "", clean(r["Asset Name"]).split(" (")[0]).strip()
+        name = re.sub(r"\s{2,}", " - ", clean(r["Name"]))
+        names.setdefault(name, clean(r["Prognosis"]))
+        rows.append(dict(
+            a=asset, s=clean(r["Alarm Start Time"])[:16], e=clean(r["Alarm End Time"])[:16] or None,
+            n=name, v=SEV_ALARM.get(clean(r["Severity"]), 1), g=int(clean(r["Number of Aggregated Alarms"]) or 0),
+            m=clean(r["Method"]),
+        ))
+    starts = sorted(x["s"] for x in rows)
+    meta = dict(total=total, useful=len(rows), first=starts[0][:10] if starts else None,
+                last=starts[-1][:10] if starts else None)
+    return rows, names, meta
+
+
 def match_prefix(loc, prefix):
     return loc == prefix or loc.startswith(prefix + "-")
 
@@ -138,6 +164,15 @@ def build(args):
     oil = load_oil(args.oleo)
     vib, vib_meta = load_vib(args.vib)
     notes, sap_meta = load_sap(args.sap)
+    alarms, alarm_names, alarm_meta = load_alarms(args.alarmes)
+    alarm_owner = {}
+    for eid, assets in ALARM_ASSETS.items():
+        for a in assets:
+            alarm_owner.setdefault(a, []).append(eid)
+    alarms_by_eq = {e["id"]: [] for e in EQUIPMENT}
+    for al in alarms:
+        for eid in alarm_owner.get(al["a"], []):
+            alarms_by_eq[eid].append(al)
 
     eq_by_id = {e["id"]: e for e in EQUIPMENT}
     prefixes = sorted(((p, e["id"]) for e in EQUIPMENT for p in e["sap"]), key=lambda x: -len(x[0]))
@@ -198,6 +233,7 @@ def build(args):
         out_eq.append(dict(
             id=e["id"], sys=e["sys"], name=e["name"], tag=e["tag"], w=e["w"],
             sapPrefix=e["sap"], eng=e["eng"], cases=e["cases"], vib=vuniq, oil=slim, sap=sap,
+            alm=sorted(alarms_by_eq[e["id"]], key=lambda x: x["s"]), almAssets=ALARM_ASSETS.get(e["id"], []),
         ))
 
     missing_cases = [c for e in EQUIPMENT for c in e["cases"] if c not in {x["id"] for x in CASES}]
@@ -212,9 +248,10 @@ def build(args):
         generatedAt=datetime.now().strftime("%Y-%m-%d %H:%M"),
         sources=dict(
             oleo=Path(args.oleo).name, vib=Path(args.vib).name, sap=Path(args.sap).name,
+            alarmes=Path(args.alarmes).name,
             pptx="Apresentacao_FPSO_Forte.pptx", cases="Cases Forte / Cases Forte - pt2 (telas)",
         ),
-        vibMeta=vib_meta, sapMeta=sap_meta,
+        vibMeta=vib_meta, sapMeta=sap_meta, alarmMeta=alarm_meta, alarmNames=alarm_names,
         systems=SYSTEMS, equipment=out_eq, cases=CASES,
         sysNotes={k: sorted(v, key=lambda x: x["cd"] or "9999") for k, v in sap_by_sys.items()},
         coverage=dict(
@@ -222,6 +259,8 @@ def build(args):
             oilSamples=len(oil), oilMapped=sum(1 for o in oil if o["s"] in used_oil), oilUnmapped=unmapped_oil,
             sapOpen=len(notes), sapMapped=sum(len(v) for v in sap_by_eq.values()),
             sapSystem=sum(len(v) for v in sap_by_sys.values()),
+            almUseful=len(alarms), almMapped=sum(1 for a in alarms if a["a"] in alarm_owner),
+            almUnmapped=sorted({a["a"] for a in alarms if a["a"] not in alarm_owner}),
         ),
     )
     return data
@@ -232,6 +271,7 @@ def main():
     ap.add_argument("--oleo", required=True)
     ap.add_argument("--vib", required=True)
     ap.add_argument("--sap", required=True)
+    ap.add_argument("--alarmes", required=True)
     ap.add_argument("--data-ref", default=datetime.now().strftime("%Y-%m-%d"))
     ap.add_argument("--saida", default="FPSO_Forte_Health_Score.html")
     ap.add_argument("--template", default=str(Path(__file__).resolve().parent / "template.html"))
@@ -248,6 +288,7 @@ def main():
     print(f"Óleo: {cov['oilMapped']}/{cov['oilSamples']} amostras associadas")
     print(f"SAP: {cov['sapMapped']} notas abertas em equipamentos, {cov['sapSystem']} só no sistema, "
           f"{cov['sapOpen']} abertas no total")
+    print(f"Alarmes USEFUL: {cov['almMapped']}/{cov['almUseful']} associados. Sem equipamento: {cov['almUnmapped']}")
     print("Arquivo gerado:", args.saida)
 
 

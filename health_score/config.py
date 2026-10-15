@@ -12,49 +12,50 @@ Cada equipamento aponta para as chaves usadas em cada fonte de dados:
   w     -> peso de criticidade do equipamento dentro do sistema (1 a 5).
 """
 
-# Peso de cada sistema no Health Score global (1 a 5) e justificativa.
+# Peso de cada sistema no Health Score global e justificativa.
+# Pesos fixos definidos pelo usuário (calibração de 15/10/2026). Peso 0 tira o sistema do global.
 SYSTEMS = [
-    dict(id="GP", name="Geração Principal de Energia", w=5, icon="power",
+    dict(id="GP", name="Geração Principal de Energia", w=8, icon="power",
          why="Turbogeradores alimentam toda a planta. Perda de geração leva a shutdown parcial ou total."),
-    dict(id="CG", name="Compressão de Gás", w=5, icon="compressor",
+    dict(id="CG", name="Compressão de Gás", w=8, icon="compressor",
          why="Sem compressão o gás associado vai para o flare e a produção de óleo é restringida pelo limite de queima."),
-    dict(id="CI", name="Combate a Incêndio", w=5, icon="fire",
+    dict(id="CI", name="Combate a Incêndio", w=7, icon="fire",
          why="Elemento crítico de segurança (SCE). Indisponibilidade pode exigir parada da unidade."),
-    dict(id="GE", name="Geração de Emergência", w=5, icon="power",
+    dict(id="GE", name="Geração de Emergência", w=1, icon="power",
          why="Elemento crítico de segurança. Alimenta cargas essenciais em blackout."),
-    dict(id="IA", name="Injeção de Água", w=4, icon="pump",
+    dict(id="IA", name="Injeção de Água", w=1, icon="pump",
          why="Manutenção da pressão do reservatório. Impacto direto na curva de produção."),
-    dict(id="CA", name="Captação de Água do Mar", w=4, icon="wave",
+    dict(id="CA", name="Captação de Água do Mar", w=1, icon="wave",
          why="Fornece água para resfriamento e alimenta a injeção. Falha afeta vários sistemas."),
-    dict(id="RF", name="Água de Resfriamento", w=4, icon="cool",
+    dict(id="RF", name="Água de Resfriamento", w=1, icon="cool",
          why="Resfriamento de turbogeradores e compressores. Falha provoca trip por temperatura."),
-    dict(id="EL", name="Sistema Elétrico, Transformadores e UPS", w=4, icon="bolt",
+    dict(id="EL", name="Sistema Elétrico, Transformadores e UPS", w=1, icon="bolt",
          why="Transformadores dos compressores e UPS de sistemas de segurança e controle."),
-    dict(id="EP", name="Escoamento de Petróleo", w=4, icon="oil",
+    dict(id="EP", name="Escoamento de Petróleo", w=0, icon="oil",
          why="Transferência do óleo tratado para os tanques de carga."),
-    dict(id="TO", name="Tratamento de Óleo", w=4, icon="process",
+    dict(id="TO", name="Tratamento de Óleo", w=0.5, icon="process",
          why="Separação e aquecimento do óleo. Afeta especificação e vazão de produção."),
-    dict(id="CP", name="Controle de Poços (HPU Submarina)", w=4, icon="valve",
+    dict(id="CP", name="Controle de Poços (HPU Submarina)", w=0.5, icon="valve",
          why="Comando das válvulas submarinas. Perda de HPU fecha poços."),
-    dict(id="AR", name="Ar Comprimido", w=4, icon="air",
+    dict(id="AR", name="Ar Comprimido", w=0.5, icon="air",
          why="Ar de instrumento para válvulas de controle e ESD."),
-    dict(id="AQ", name="Água Quente (Cooling Medium)", w=3, icon="heat",
+    dict(id="AQ", name="Água Quente (Cooling Medium)", w=0, icon="heat",
          why="Meio de aquecimento do processo. Possui redundância."),
-    dict(id="AP", name="Tratamento de Água Produzida", w=3, icon="water",
+    dict(id="AP", name="Tratamento de Água Produzida", w=0.5, icon="water",
          why="Enquadramento e descarte ou reinjeção da água produzida. Restrição pode limitar produção."),
-    dict(id="TC", name="Telecomunicações", w=3, icon="radio",
+    dict(id="TC", name="Telecomunicações", w=0.5, icon="radio",
          why="PAGA, rádio e GMDSS são itens de segurança. Demais itens são de suporte."),
-    dict(id="GD", name="Movimentação de Cargas (Guindastes)", w=3, icon="crane",
+    dict(id="GD", name="Movimentação de Cargas (Guindastes)", w=0.5, icon="crane",
          why="Logística de bordo e operações de carga. Não para a produção de imediato."),
-    dict(id="MA", name="Unidades Hidráulicas, Offloading e Marinha", w=3, icon="ship",
+    dict(id="MA", name="Unidades Hidráulicas, Offloading e Marinha", w=0.5, icon="ship",
          why="HPUs de carga, lastro, offloading e amarração."),
     dict(id="SV", name="Salvatagem (Baleeiras e Bote de Resgate)", w=4, icon="boat",
          why="Elemento crítico de segurança para abandono da unidade e resgate de homem ao mar."),
-    dict(id="OD", name="Óleo Diesel", w=2, icon="drop",
+    dict(id="OD", name="Óleo Diesel", w=0, icon="drop",
          why="Abastecimento de diesel para geração de emergência, auxiliar e partida. Possui redundância."),
-    dict(id="GA", name="Geração Auxiliar", w=2, icon="power",
+    dict(id="GA", name="Geração Auxiliar", w=0.5, icon="power",
          why="Apoio à geração principal. Baixo impacto direto na produção."),
-    dict(id="HV", name="HVAC e Água Gelada", w=2, icon="fan",
+    dict(id="HV", name="HVAC e Água Gelada", w=0.5, icon="fan",
          why="Climatização de salas técnicas e acomodações. Possui redundância."),
 ]
 
@@ -354,6 +355,23 @@ EQUIPMENT += [
       vib=["M-B 513303"], oil=["B-513303"]),
     E("CEN", "OD", "Centrífugas de Diesel SC-513301A/B", "SC-513301", 2, sap=["FORTE-FSOD-CEN-01"]),
 ]
+
+# Ativos da lista de alarmes (alarms-list.csv, coluna "Asset Name" sem o prefixo FORTE-)
+# associados a cada equipamento.
+ALARM_ASSETS = {
+    "TGA": ["TS-GE-514001A", "GE-514001A"],
+    "TGB": ["TS-GE-514001B", "GE-514001B"],
+    "TGC": ["TS-GE-514001C", "GE-514001C"],
+    "TGD": ["TS-GE-514001D", "GE-514001D"],
+    "MCA": ["C-UC-123101A-01", "C-UC-123101A-02", "VV-C-UC-123101A", "M-UC-123101A"],
+    "MCB": ["C-UC-123101B-01", "C-UC-123101B-02", "VV-C-UC-123101B", "M-UC-123101B"],
+    "MCC": ["C-UC-123101C-01", "C-UC-123101C-02", "VV-C-UC-123101C", "M-UC-123101C"],
+    "BOO": ["UC-1225"],
+    "BIA": ["B-UB-125101A"], "BIB": ["B-UB-125101B"], "BIC": ["B-UB-125101C"], "BID": ["B-UB-125101D"],
+    "CAA": ["B-511101A"], "CAB": ["B-511101B"], "CAC": ["B-511101C"], "CAD": ["B-511101D"],
+    "HTA": ["P-122303A"], "HTB": ["P-122303B"],
+    "DGSC1": ["DGS-123101C"], "DGSC2": ["DGS-123101C"],
+}
 
 # Cases transcritos das telas "Cases Forte" e "Cases Forte - pt2".
 # sev = barras de criticidade preenchidas na 1ª coluna (1 baixa, 2 média, 3 alta, 4 crítica).
